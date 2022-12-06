@@ -16,36 +16,49 @@ const publishRestful =
 const nexusUser = 'admin:nexus'
 
 // 保存nexus仓库已有依赖
-const publishInfo = {
-  error: [],
-  new: [],
-  exist: []
+const publishLog = {
+  exist: 0,
+  new: 0,
+  success: 0,
+  error: 0,
+  errorLog: []
 }
+// 已存在包列表
+const existedPackages = []
 
-const excludeExistedFiles = () => {
+const publishPackages = () => {
   fs.readdir(needToUploadFilesDir, (err, files) => {
     console.log('》》》2.上传tgz《《《')
-    files
-      .filter(f => !publishInfo.exist.includes(f))
-      .forEach(f => {
-        const file = f // path.resolve(needToUploadFilesDir, f);
-        const curlCmd = `curl -u ${nexusUser} -X POST \"${publishRestful}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${file};type=application/x-compressed"`
+    // 过滤待上传的包
+    const waitForUpload = files.filter(f => !existedPackages.includes(f))
+    let count = 0
+    publishLog.new = waitForUpload.length
 
-        exec(curlCmd, { cwd: needToUploadFilesDir }, function(
-          error,
-          stdout,
-          stderr
-        ) {
-          if (error) {
-            publishInfo.error.push(file)
-            console.error(file + ' publish 失败')
-            console.log(error)
-          } else {
-            publishInfo.new.push(file)
-            console.log(file + ' publish 成功', stdout)
-          }
-        })
+    waitForUpload.forEach(f => {
+      const file = f // path.resolve(needToUploadFilesDir, f);
+      const curlCmd = `curl -u ${nexusUser} -X POST \"${publishRestful}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${file};type=application/x-compressed"`
+
+      exec(curlCmd, { cwd: needToUploadFilesDir }, (error, stdout, stderr) => {
+        if (error) {
+          publishLog.error++
+          publishLog.errorLog.push(
+            `[ERROR] publish error: ${file}, reason` + error
+          )
+          console.error(file + ' publish failed', error)
+        } else {
+          publishLog.success++
+        }
+        if (++count === publishLog.new) {
+          fs.writeFile(
+            new Date().valueOf() + '.log',
+            JSON.stringify(publishLog, null, 2),
+            err => {
+              console.log('publish finished !')
+            }
+          )
+        }
       })
+    })
   })
 }
 
@@ -55,7 +68,7 @@ const getReq = async continuationToken => {
     : ''
   const result = await axios.get(publishRestful + contiToken)
   if (result.status === 200 && result.data && result.data.items) {
-    publishInfo.exist.push(
+    existedPackages.push(
       ...result.data.items.map(item => {
         const g = item.group ? item.group + '-' : ''
         const n = item.name + '-'
@@ -67,17 +80,11 @@ const getReq = async continuationToken => {
     if (result.data.continuationToken) {
       await getReq(result.data.continuationToken)
     } else {
+      publishLog.exist = existedPackages.length
       console.log('请求结束时间戳: ', new Date().valueOf())
-      console.log('请求完毕，结果写入文件中(备用，可忽略) ')
-      fs.writeFile(
-        new Date().valueOf() + '.log',
-        JSON.stringify(publishInfo, null, 2),
-        err => {
-          console.log('结果写入文件完毕! ! !')
-          //借助nexus rest API上传文件
-          excludeExistedFiles()
-        }
-      )
+
+      // 上传
+      publishPackages()
     }
   } else {
     console.log('》》》》请求出现异常《《《')

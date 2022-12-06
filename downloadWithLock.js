@@ -2,16 +2,21 @@
  * 解析当前文件夹下package-lock.json文件的依赖，将dependencies和packages中涉及到的依赖全部下载
  * 请确保路径 ./download 和 ./download/downloaded 存在
  */
+
+// 每次下载的文件会放在download里，publish到仓库后，可以手动移动到download/downloaded里，方便下次避免重复下载
+const downloadDir = './download'
+const downloadedDir = './downloaded'
+
 const shell = require('shelljs')
 const JSON5 = require('json5')
 const { exec } = require('child_process')
 const fs = require('fs')
 
 function download(fileNames = []) {
-  shell.cd('download')
+  shell.cd(downloadDir)
   let count = 0
   fileNames.forEach(fileName => {
-    // shell.echo(`>>> 正在下载 ${fileName}...`);
+    // console.log(`>>> 正在下载 ${fileName}...`);
     const fileExec = shell.exec(`npm pack ${fileName}`, {
       async: true,
       silent: true
@@ -19,7 +24,7 @@ function download(fileNames = []) {
     fileExec.stdout
       .on('data', () => {
         ++count
-        shell.echo(`>>> ${fileName} 下载完成...`)
+        console.info(`>>> ${fileName} 下载完成...`)
         if (count === fileNames.length) {
           shell.cd('..')
           shell.exit(0)
@@ -27,7 +32,7 @@ function download(fileNames = []) {
       })
       .on('err', () => {
         ++count
-        shell.echo(`>>> ${fileName} 下载失败！！！...`)
+        console.error(`>>> ${fileName} 下载失败！！！...`)
         if (count === fileNames.length) {
           shell.cd('..')
           shell.exit(0)
@@ -39,7 +44,6 @@ function download(fileNames = []) {
 function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
   const nMap = new Map()
   const NotMap = new Map()
-  const downloadedDir = './download/downloaded' // 每次下载的文件会放在download里，publish到仓库后，可以手动移动到download/downloaded里，方便下次避免重复下载
   const downloadedArr = fs.readdirSync(downloadedDir)
 
   /**
@@ -54,9 +58,9 @@ function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
         // eg: @babel/code-frame-7.14.5.tgz -> babel-code-frame-7.14.5.tgz
         tgzFormat = dep.startsWith('@')
           ? tgzFormat
-              .split('/')
-              .join('-')
-              .slice(1)
+            .split('/')
+            .join('-')
+            .slice(1)
           : tgzFormat
         if (!nMap.has(depWithVersion) && !downloadedArr.includes(tgzFormat)) {
           nMap.set(depWithVersion, true)
@@ -87,9 +91,9 @@ function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
         // eg: @babel/code-frame-7.14.5.tgz -> babel-code-frame-7.14.5.tgz
         tgzFormat = packageName.startsWith('@')
           ? tgzFormat
-              .split('/')
-              .join('-')
-              .slice(1)
+            .split('/')
+            .join('-')
+            .slice(1)
           : tgzFormat
         if (!nMap.has(depWithVersion) && !downloadedArr.includes(tgzFormat)) {
           nMap.set(depWithVersion, true)
@@ -106,16 +110,15 @@ function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
 
   getAllList(depLockJsonFile.dependencies)
   getDevList(depLockJsonFile.packages)
-  shell.echo(
-    `一共${
-      Array.from(NotMap.keys()).length
+  console.log(
+    `一共${Array.from(NotMap.keys()).length
     }个依赖包已在${downloadedDir}目录下存在，不需要重复下载：\n`
   )
-  shell.echo(
-    `>>> 无需下载列表： \n - ${Array.from(NotMap.keys()).join('\n - ')}...\n`
-  )
-  shell.echo(`一共${Array.from(nMap.keys()).length}个依赖包待下载\n`)
-  shell.echo(
+  // console.log(
+  //   `>>> 无需下载列表： \n - ${Array.from(NotMap.keys()).join('\n - ')}...\n`
+  // )
+  console.log(`一共${Array.from(nMap.keys()).length}个依赖包待下载\n`)
+  console.log(
     `>>> 待下载列表： \n - ${Array.from(nMap.keys()).join('\n - ')}...`
   )
   download(Array.from(nMap.keys()))
