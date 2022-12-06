@@ -8,8 +8,6 @@ const downloadDir = './download'
 const downloadedDir = './downloaded'
 
 const shell = require('shelljs')
-const JSON5 = require('json5')
-const { exec } = require('child_process')
 const fs = require('fs')
 
 function download(fileNames = []) {
@@ -114,9 +112,6 @@ function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
     `一共${Array.from(NotMap.keys()).length
     }个依赖包已在${downloadedDir}目录下存在，不需要重复下载：\n`
   )
-  // console.log(
-  //   `>>> 无需下载列表： \n - ${Array.from(NotMap.keys()).join('\n - ')}...\n`
-  // )
   console.log(`一共${Array.from(nMap.keys()).length}个依赖包待下载\n`)
   console.log(
     `>>> 待下载列表： \n - ${Array.from(nMap.keys()).join('\n - ')}...`

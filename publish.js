@@ -6,7 +6,6 @@
  * 私服用户 nexusUser
  */
 let fs = require('fs')
-let path = require('path')
 const { exec } = require('child_process')
 const axios = require('axios')
 
