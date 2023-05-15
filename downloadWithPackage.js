@@ -15,33 +15,67 @@ const shell = require('shelljs')
 const { exec } = require('child_process')
 const fs = require('fs')
 
-function download(fileNames = []) {
-  shell.cd(downloadDir)
-  let count = 0
-  fileNames.forEach(fileName => {
-    // console.log(`>>> 正在下载 ${fileName}...`);
-    const fileExec = shell.exec(`npm pack ${fileName}`, {
-      async: true,
-      silent: true
-    })
-    fileExec.stdout
-      .on('data', () => {
-        ++count
-        console.info(`>>> ${fileName} 下载完成...`)
-        if (count === fileNames.length) {
-          shell.cd('..')
-          shell.exit(0)
-        }
-      })
-      .on('err', () => {
-        ++count
-        console.error(`>>> ${fileName} 下载失败！！！...`)
-        if (count === fileNames.length) {
-          shell.cd('..')
-          shell.exit(0)
-        }
-      })
+
+const { promisify } = require('util');
+const sleep = promisify(setTimeout);
+
+let worker = 0;
+let count = 0;
+let total = 0;
+
+function getWorker() {
+  if (worker < 20) {
+    worker++;
+    return true;
+  } else {
+    return false
+  }
+}
+
+function putWorker() {
+  worker--;
+}
+
+function runExec(fileName) {
+  const fileExec = shell.exec(`npm pack ${fileName}`, {
+    async: true,
+    silent: true
   })
+  fileExec.stdout
+    .on('data', () => {
+      ++count
+      putWorker()
+      console.info(`>>> ${fileName} 下载完成...`)
+      if (count === total) {
+        shell.cd('..')
+        shell.exit(0)
+      }
+    })
+    .on('err', () => {
+      ++count
+      putWorker()
+      console.error(`>>> ${fileName} 下载失败！！！...`)
+      if (count === total) {
+        shell.cd('..')
+        shell.exit(0)
+      }
+    })
+}
+
+async function download(fileNames = []) {
+  total = fileNames.length;
+  try {
+    while (fileNames.length !== 0) {
+      if (getWorker()) {
+        runExec(fileNames.shift());
+      } else {
+        await sleep(1000)
+      }
+    }
+  } catch (e) {
+    console.error(e)
+  }
+
 }
 
 function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
@@ -83,6 +117,7 @@ function downloadByPackageJsonLockFile(depLockJsonFile = {}) {
   console.log(
     `>>> 待下载列表： \n - ${Array.from(nMap.keys()).join('\n - ')}...`
   )
+  shell.cd(downloadDir)
   download(Array.from(nMap.keys()))
 }
 let command = `npm i ${target} --package-lock-only`
