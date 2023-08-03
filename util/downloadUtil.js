@@ -1,4 +1,3 @@
-const shell = require("shelljs");
 const logger = require("./logUtil");
 const axios = require("axios");
 const fs = require("fs");
