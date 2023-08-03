@@ -4,7 +4,7 @@
  * 请确保路径 ./download 和 ./download/downloaded 存在
  * 若package.json中有冲突，请将force设置为true，追加'--legacy-peer-deps'参数
  */
-const target = 'process-nextick-args@~1.0.0';
+const target = '@novnc/novnc optimist mime-types node-websockify';
 const force = false;
 
 const { exec } = require("child_process");
@@ -19,6 +19,5 @@ exec(command, (error, stdout, stderror) => {
     console.error("package-lock.json文件生成失败...", error);
     return;
   }
-  exec('del package.json')
-  exec('node downloadWithLockFile.js')
+  exec('node download.js')
 });

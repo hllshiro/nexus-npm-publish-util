@@ -12,7 +12,7 @@ const axios = require("axios");
 const needToUploadFilesDir = "./download"; // 自定义，待上传tgz文件所在目录
 const publishRestful =
   "http://nexus.senjone.com/service/rest/v1/components?repository=npm-hosted";
-const nexusUser = "admin:nexus";
+const nexusUser = "xqkj:xqkj";
 
 // 保存nexus仓库已有依赖
 const publishLog = {
