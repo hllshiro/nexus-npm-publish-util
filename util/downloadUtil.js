@@ -27,6 +27,7 @@ const download = async function (urlSet, savePath) {
     const filePath = path.join(savePath, fileName);
     if (!fs.existsSync(filePath)) {
       downloadFile(url, filePath);
+      logger.info(fileName);
     }
   });
 

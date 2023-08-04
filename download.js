@@ -11,7 +11,7 @@ const fs = require("fs");
 const {
   extractResolvedUrls
 } = require("./util/lockUtil");
-const { downloadUrls } = require("./util/downloadUtil");
+const { download } = require("./util/downloadUtil");
 const logger = require("./util/logUtil");
 
 // 读取lock文件并反序列化
@@ -19,6 +19,7 @@ const packageLockData = fs.readFileSync("./package-lock.json", "utf8");
 const packageLock = JSON.parse(packageLockData);
 const urls = extractResolvedUrls(packageLock);
 
-logger.info(`总计获取到${urls.length}个依赖包`);
+logger.info(`总计获取到${urls.size}个依赖包`);
 logger.info("开始下载");
-downloadUrls(urls, downloadDir);
+download(urls, downloadDir);
+
