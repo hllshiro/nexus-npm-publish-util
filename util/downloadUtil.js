@@ -22,12 +22,12 @@ const download = async function (urlSet, savePath) {
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath);
   }
-  const downloadPromises = Array.from(urlSet).map((url, index) => {
+  const downloadPromises = Array.from(urlSet).map(async (url, index) => {
     const fileName = url.substring(url.lastIndexOf("/") + 1);
     const filePath = path.join(savePath, fileName);
     if (!fs.existsSync(filePath)) {
-      downloadFile(url, filePath);
-      logger.info(fileName);
+      logger.info(`${index + 1}. ${fileName}`);
+      await downloadFile(url, filePath);
     }
   });
 
