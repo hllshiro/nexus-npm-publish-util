@@ -15,8 +15,9 @@
 ### 解析`package.json`并下载
 
 1. 修改`main.js`中的`target`参数为空字符串''
-2. 将`package.json`放在当前目录下
-3. 执行 `node main.js`
+2. 拷贝当前的`package.json`依赖到需要下载的`package.json`，主要是`axios`和`log4js`
+3. 将`package.json`放在当前目录下
+4. 执行 `node main.js`
 
 ### 解析`package-lock.json`并下载
 
