@@ -4,7 +4,7 @@
  * 请确保路径 ./download 和 ./download/downloaded 存在
  * 若package.json中有冲突，请将force设置为true，追加'--legacy-peer-deps'参数
  */
-const target = '';
+const target =  process.argv.slice(2)[0];
 const force = false;
 
 const { exec } = require("child_process");
