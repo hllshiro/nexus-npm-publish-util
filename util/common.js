@@ -42,7 +42,7 @@ const argv = yargs
 	})
 	.option('publish', {
 		alias: 'p',
-		description: '发布模式',
+		description: '发布模式，优先级高于下载参数',
 		type: 'boolean',
 		default: false
 	})
@@ -50,6 +50,19 @@ const argv = yargs
 		description: '包含待发布包的目录路径',
 		type: 'string',
 		default: 'download'
+	})
+	.option('publish-url', {
+		description: '远程仓库发布地址',
+		type: 'string'
+	})
+	.option('publish-auth', {
+		description: '远程仓库认证信息，例如[用户名:密码]',
+		type: 'string'
+	})
+	.option('force-publish', {
+		description: '强制发布所有的包，默认跳过远程仓库已存在的包',
+		type: 'boolean',
+		default: false
 	})
 	.check((argv) => {
 		if (!argv.name && !argv.input && !argv.package && !argv.publish) {
@@ -60,6 +73,9 @@ const argv = yargs
 		}
 		if (argv.force && argv.legacy) {
 			throw new Error('[error] 不能同时使用--force和--legacy-peer-deps参数')
+		}
+		if (argv.publish && (!argv.publishUrl || !argv.publishAuth)) {
+			throw new Error('[error] 发布模式下必须指定--publish-url和--auth参数')
 		}
 		return true
 	})

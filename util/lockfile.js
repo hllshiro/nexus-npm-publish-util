@@ -6,7 +6,7 @@ const shell = require('shelljs')
 const fs = require('fs')
 const { downloadFile, calculateHash } = require('./download')
 const path = require('path')
-const ProcessBar = require('progress')
+const ProgressBar = require('progress')
 
 class Lockfile {
 	/**
@@ -37,7 +37,7 @@ class Lockfile {
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
 		}
-		const bar = new ProcessBar('下载进度 [:bar] :percent', {
+		const bar = new ProgressBar('下载进度 [:bar] :percent', {
 			total: this.resolvedPackages.size,
 			complete: '=',
 			incomplete: ' ',
@@ -74,7 +74,7 @@ class Lockfile {
 			Log.info('全部下载完成')
 		} catch (err) {
 			bar.interrupt('遇到错误')
-			Log.error(err)
+			Log.error('下载失败', err)
 		}
 		return result
 	}
