@@ -50,8 +50,8 @@ class Lockfile {
 				bar.tick()
 				return
 			}
-			const res = await downloadFile(pkg.resolved, savePath)
-			if (res) {
+			const err = await downloadFile(pkg.resolved, savePath)
+			if (err) {
 				result.failed.push(`${pkg.name}@${pkg.version}`)
 				bar.tick()
 				return
@@ -73,7 +73,7 @@ class Lockfile {
 			}
 			Log.info('全部下载完成')
 		} catch (err) {
-			bar.interrupt('遇到错误')
+			bar.interrupt('下载意外终止')
 			Log.error('下载失败', err)
 		}
 		return result
@@ -131,4 +131,4 @@ const resolveURL = (url, baseURL) => {
 	return url.match(reg)
 }
 
-module.exports.Lockfile = Lockfile
+module.exports = Lockfile

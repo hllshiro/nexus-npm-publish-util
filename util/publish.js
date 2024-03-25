@@ -9,51 +9,15 @@ let fs = require('fs')
 const { exec } = require('child_process')
 const http = require('http')
 const ProgressBar = require('progress')
+const Log = require('./log')
 
-const needToUploadFilesDir = './download' // 自定义，待上传tgz文件所在目录
-const publishRestful = 'http://nexus.senjone.com/service/rest/v1/components?repository=npm-hosted'
-const nexusUser = 'xqkj:xqkj'
-
-// 保存nexus仓库已有依赖
-const publishLog = {
-	exist: 0,
-	new: 0,
-	success: 0,
-	error: 0,
-	errorLog: []
-}
-const publishPackages = () => {
-	fs.readdir(needToUploadFilesDir, (err, files) => {
-		console.log('》》》2.上传tgz《《《')
-		// 过滤待上传的包
-		const waitForUpload = files.filter((f) => !existedPackages.includes(f))
-		let count = 0
-		publishLog.new = waitForUpload.length
-
-		waitForUpload.forEach((f) => {
-			const file = f // path.resolve(needToUploadFilesDir, f);
-			const curlCmd = `curl -u ${nexusUser} -X POST \"${publishRestful}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${file};type=application/x-compressed"`
-			console.log(file)
-
-			exec(curlCmd, { cwd: needToUploadFilesDir }, (error, stdout, stderr) => {
-				if (error) {
-					publishLog.error++
-					publishLog.errorLog.push(`[ERROR] publish error: ${file}, reason` + error)
-					console.error(file + ' publish failed', error)
-				} else {
-					publishLog.success++
-				}
-				if (++count === publishLog.new) {
-					fs.writeFile(new Date().valueOf() + '.log', JSON.stringify(publishLog, null, 2), (err) => {
-						console.log('publish finished !')
-						exec('move /y download*.tgz downloaded')
-					})
-				}
-			})
-		})
-	})
-}
-
+/**
+ * 递归扫描远程仓库
+ * @param publishURL
+ * @param continuationToken
+ * @param list
+ * @return {Promise<*[]>}
+ */
 const recursiveReq = async (publishURL, continuationToken, list = []) => {
 	const token = continuationToken ? '&continuationToken=' + continuationToken : ''
 	const data = await new Promise(async (resolve, reject) => {
@@ -88,6 +52,12 @@ const recursiveReq = async (publishURL, continuationToken, list = []) => {
 	return list
 }
 
+/**
+ * 扫描远程仓库
+ * 针对nexus有效，其他未测试
+ * @param publishURL
+ * @return {Promise<*[]>}
+ */
 const getPkgListFromService = async (publishURL) => {
 	const bar = new ProgressBar('获取中: :elapseds', { total: Number.MAX_VALUE })
 	const timer = setInterval(() => {
@@ -102,6 +72,69 @@ const getPkgListFromService = async (publishURL) => {
 	}
 }
 
+/**
+ * 异步发布
+ * @param curl
+ * @param options
+ * @return {Promise<unknown>}
+ */
+const execCurl = async (curl, options) => {
+	return new Promise((resolve, reject) => {
+		exec(curl, options, (error, stdout, stderr) => {
+			if (error) {
+				reject(err)
+			} else {
+				resolve()
+			}
+		})
+	})
+}
+
+/**
+ * 发布
+ * @param publishList 发布列表
+ * @param auth 认证
+ * @param url 地址
+ * @param cwd 包地址
+ * @param threads 线程数
+ * @return {Promise<{success: number, failed: *[]}>}
+ */
+const publish = async (publishList, cwd, url, auth, threads) => {
+	const bar = new ProgressBar('发布进度 [:bar] :percent', {
+		total: publishList.length,
+		complete: '=',
+		incomplete: ' ',
+		width: 100
+	})
+	const result = {
+		success: 0,
+		failed: []
+	}
+	const promises = publishList.map(async (pkg) => {
+		const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
+		const err = await execCurl(curl, { cwd: cwd })
+		if (err) {
+			result.failed.push(pkg)
+		} else {
+			result.success++
+		}
+		bar.tick()
+	})
+
+	try {
+		for (let i = 0; i < promises.length; i += threads) {
+			const task = promises.slice(i, i + threads)
+			await Promise.all(task)
+		}
+		Log.info('全部发布完成')
+	} catch (err) {
+		bar.interrupt('发布意外终止')
+		Log.error('发布失败', err)
+	}
+	return result
+}
+
 module.exports = {
-	getPkgListFromService
+	getPkgListFromService,
+	publish
 }

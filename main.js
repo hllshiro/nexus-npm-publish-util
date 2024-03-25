@@ -9,34 +9,15 @@ const path = require('path')
 const shell = require('shelljs')
 const { execSync } = require('child_process')
 
-const { argv, Common } = require('./util/common')
-const { Lockfile } = require('./util/lockfile')
-const { Log } = require('./util/Log')
-const {getPkgListFromService} = require("./util/publish");
+const argv = require('./util/argv')
+const Common = require('./util/common')
+const Lockfile = require('./util/lockfile')
+const Log = require('./util/Log')
+const { getPkgListFromService, publish } = require('./util/publish')
 
 // 缓存路径
 const _CD = process.cwd()
 const _CACHE = path.join(_CD, '.cache')
-
-/**
- * 环境检查
- */
-let npmVer
-let npmRegistry
-const envCheck = () => {
-	npmVer = Common.nodeVersion()
-	if (npmVer == null) {
-		throw new Error('未找到node命令')
-	} else {
-		Log.info(`node版本: ${npmVer}`)
-	}
-	npmRegistry = Common.npmRegistry()
-	if (npmRegistry == null) {
-		throw new Error('未找到npm命令')
-	} else {
-		Log.info(`npm仓库: ${npmRegistry}`)
-	}
-}
 
 /**
  * 创建缓存
@@ -62,6 +43,19 @@ const clearCache = () => {
 
 const downloadMode = async () => {
 	Log.info('下载模式')
+	// 环境检查
+	const npmVer = Common.nodeVersion()
+	if (npmVer == null) {
+		throw new Error('未找到node命令')
+	} else {
+		Log.info(`node版本: ${npmVer}`)
+	}
+	const npmRegistry = Common.npmRegistry()
+	if (npmRegistry == null) {
+		throw new Error('未找到npm命令')
+	} else {
+		Log.info(`npm仓库: ${npmRegistry}`)
+	}
 	createCache()
 	// 创建命令
 	let command = `npm install`
@@ -69,7 +63,7 @@ const downloadMode = async () => {
 		command += ' ' + argv.name
 	}
 	if (argv.input) {
-		command += (' ' + fs.readFileSync(Common.getAbsolutePath(_CD, argv.input))).replaceAll(/[\n|\r]/g, ' ')
+		command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, ' ')
 	}
 	if (argv.package) {
 		shell.cp(argv.package, _CACHE)
@@ -84,8 +78,7 @@ const downloadMode = async () => {
 	Log.info(`执行命令生成lock文件: ${command}`)
 
 	// 生成lock文件
-	const res = String(execSync(command))
-	Log.info('执行结果: ' + res.replaceAll(/[\n|\r]/g, ' '))
+	Log.info('执行结果: ' + String(execSync(command)).replaceAll(/[\n|\r]/g, ' '))
 
 	// lock解析
 	Log.info('解析lock文件')
@@ -94,17 +87,17 @@ const downloadMode = async () => {
 
 	// 下载包
 	Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
-	const result = await lockfile.download(Common.getAbsolutePath(_CD, argv.output), argv.threadNumber)
+	const res = await lockfile.download(argv.output, argv.threadNumber)
 	// 回显结果
-	if (result.success > 0) {
-		Log.info(`成功(${result.success})`)
+	if (res.success > 0) {
+		Log.info(`成功(${res.success})`)
 	}
-	if (result.skipped > 0) {
-		Log.info(`跳过(${result.skipped})`)
+	if (res.skipped > 0) {
+		Log.info(`跳过(${res.skipped})`)
 	}
-	if (result.failed.length > 0) {
-		Log.info(`失败(${result.failed.length})`)
-		Log.info(result.failed.join('\n'))
+	if (res.failed.length > 0) {
+		Log.info(`失败(${res.failed.length})`)
+		Log.info(res.failed.join('\n'))
 	}
 }
 
@@ -112,18 +105,34 @@ const publishMode = async () => {
 	Log.info('发布模式')
 	// 获取服务端缓存
 	let servicePkgList = []
-	if (!argv.forcePublish) {
-		Log.info('获取服务端缓存')
-		servicePkgList = await getPkgListFromService(argv.publishUrl)
+	if (argv.forcePublish) {
+		Log.info('跳过远程仓库扫描')
 	} else {
-		Log.info('跳过服务端缓存')
+		Log.info('扫描远程仓库(nexus仓库为单线程模型，获取时间与仓库大小有关)')
+		servicePkgList = await getPkgListFromService(argv.publishUrl)
+		Log.info(`扫描结束，共获取到${servicePkgList.length}个包`)
 	}
-	console.log()
+	Log.info('扫描待发布目录')
+	const list = fs.readdirSync(argv.publishDir).filter((item) => servicePkgList.indexOf(item) === -1)
+	if (list.length > 0) {
+		Log.info(`找到${list.length}个待上传的包`)
+		Log.info('开始发布')
+		const res = await publish(list, argv.publishDir, argv.publishUrl, argv.publishAuth, argv.threadNumber)
+		// 回显结果
+		if (res.success > 0) {
+			Log.info(`成功(${res.success})`)
+		}
+		if (res.failed.length > 0) {
+			Log.info(`失败(${res.failed.length})`)
+			Log.info(res.failed.join('\n'))
+		}
+	} else {
+		Log.error('未找到待发布的包或全部存在于远端仓库')
+	}
 }
 
 const main = async () => {
 	try {
-		envCheck()
 		if (argv.publish) {
 			await publishMode()
 		} else {
