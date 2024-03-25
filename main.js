@@ -9,27 +9,25 @@ const path = require('path')
 const shell = require('shelljs')
 const { execSync } = require('child_process')
 
-const { argv, nodeVersion, npmRegistry } = require('./util/common')
+const { argv, Common } = require('./util/common')
 const { Lockfile } = require('./util/lockfile')
 const { Log } = require('./util/Log')
 
 // 缓存路径
 const TMP_DIR = 'tmp'
-const OUTPUT_DIR = 'download'
-const DEFAULT_THREADS = 10
 const _cd = process.cwd()
 const _tmp = path.join(_cd, TMP_DIR)
 
 async function main() {
 	try {
 		// 环境检查
-		const version = nodeVersion()
+		const version = Common.nodeVersion()
 		if (version == null) {
 			throw new Error('未找到node命令')
 		} else {
 			Log.info(`node版本: ${version}`)
 		}
-		const registry = npmRegistry()
+		const registry = Common.npmRegistry()
 		if (registry == null) {
 			throw new Error('未找到npm命令')
 		} else {
@@ -48,13 +46,16 @@ async function main() {
 		if (argv.name) {
 			command += ' ' + argv.name
 		}
+		if (argv.input) {
+			command += (' ' + fs.readFileSync(Common.getAbsolutePath(_cd, argv.input))).replaceAll(/[\n|\r]/g, ' ')
+		}
 		if (argv.package) {
 			shell.cp(argv.package, _tmp)
 		}
 		if (argv.force) {
 			command += ' --force'
 		}
-		if (argv.legary) {
+		if (argv.legacyPeerDeps) {
 			command += ' --legacy-peer-deps'
 		}
 		command += ` --package-lock-only --prefix "${_tmp}"`
@@ -62,7 +63,7 @@ async function main() {
 
 		// 生成lock文件
 		const res = String(execSync(command))
-		Log.info('执行结果: ' + res.replaceAll('\n', ''))
+		Log.info('执行结果: ' + res.replaceAll(/[\n|\r]/g, ' '))
 
 		// lock解析
 		Log.info('解析lock文件')
@@ -71,10 +72,7 @@ async function main() {
 
 		// 下载包
 		Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
-		const result = await lockfile.download(
-			argv.output ? argv.output : path.join(_cd, OUTPUT_DIR),
-			argv.threads ? argv.threads : DEFAULT_THREADS
-		)
+		const result = await lockfile.download(Common.getAbsolutePath(_cd, argv.output), argv.threadNumber)
 		// 回显结果
 		if (result.success > 0) {
 			Log.info(`成功(${result.success})`)

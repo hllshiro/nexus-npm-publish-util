@@ -37,7 +37,12 @@ class Lockfile {
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
 		}
-		const bar = new ProcessBar(':bar', { total: this.resolvedPackages.size })
+		const bar = new ProcessBar('下载进度 [:bar] :percent', {
+			total: this.resolvedPackages.size,
+			complete: '=',
+			incomplete: ' ',
+			width: 100
+		})
 		const promises = Array.from(this.resolvedPackages).map(async (pkg) => {
 			const savePath = path.join(output, pkg.file)
 			if (fs.existsSync(savePath)) {
@@ -68,6 +73,7 @@ class Lockfile {
 			}
 			Log.info('全部下载完成')
 		} catch (err) {
+			bar.interrupt('遇到错误')
 			Log.error(err)
 		}
 		return result
