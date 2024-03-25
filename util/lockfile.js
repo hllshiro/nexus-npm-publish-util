@@ -1,5 +1,10 @@
+/**
+ * 解析package-lock.json文件
+ * @param {*} lockfileObj 
+ * @returns 
+ */
 const extractResolvedUrls = function (lockfileObj) {
-  const resolve = function (obj, resolvedSet) {
+  const resolve = (obj, resolvedSet) => {
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const value = obj[key];
@@ -24,6 +29,6 @@ const extractResolvedUrls = function (lockfileObj) {
   return resolvedUrlsSet;
 };
 
-module.exports = {
+module.exports.lockfile = {
   extractResolvedUrls
 };

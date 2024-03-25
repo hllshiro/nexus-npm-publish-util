@@ -1,6 +1,22 @@
 {
+  "name": "lpm",
+  "version": "0.0.1",
+  "bin": "./main.js",
+  "scripts": {
+    "start": "node ./main.js",
+    "build": "pkg ."
+  },
+  "pkg": {
+    "scripts": "main.js",
+    "targets": [
+      "node16-win-x64"
+    ],
+    "outputPath": "dist"
+  },
   "dependencies": {
-    "axios": "^1.4.0",
-    "log4js": "^6.9.1"
+    "axios": "^1.6.8",
+    "pkg": "^5.8.1",
+    "shelljs": "^0.8.5",
+    "yargs": "^17.7.2"
   }
 }
