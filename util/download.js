@@ -10,9 +10,6 @@ const crypto = require('crypto')
  */
 const downloadFile = async function (url, filePath) {
 	return new Promise((resolve, reject) => {
-		if (fs.existsSync(filePath)) {
-			resolve()
-		}
 		const ws = fs.createWriteStream(filePath)
 		http
 			.get(url, (res) => {

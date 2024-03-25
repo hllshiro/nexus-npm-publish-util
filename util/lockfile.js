@@ -6,6 +6,7 @@ const shell = require('shelljs')
 const fs = require('fs')
 const { downloadFile, calculateHash } = require('./download')
 const path = require('path')
+const ProcessBar = require('progress')
 
 class Lockfile {
 	/**
@@ -25,36 +26,51 @@ class Lockfile {
 	/**
 	 * 下载依赖包
 	 * @param output 保存路径
+	 * @param threads 下载线程数
 	 */
-	async download(output) {
+	async download(output, threads) {
+		const result = {
+			success: 0,
+			failed: [],
+			skipped: 0
+		}
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
 		}
-
-		let process = 0
-		const total = this.resolvedPackages.size
+		const bar = new ProcessBar(':bar', { total: this.resolvedPackages.size })
 		const promises = Array.from(this.resolvedPackages).map(async (pkg) => {
 			const savePath = path.join(output, pkg.file)
+			if (fs.existsSync(savePath)) {
+				result.skipped++
+				bar.tick()
+				return
+			}
 			const res = await downloadFile(pkg.resolved, savePath)
 			if (res) {
-				Log.error(`(${++process}/${total})${pkg.name}@${pkg.version} 下载失败`)
+				result.failed.push(`${pkg.name}@${pkg.version}`)
+				bar.tick()
 				return
 			}
 			const verify = pkg.integrity.split('-')
 			const fileHash = await calculateHash(savePath, verify[0], 'base64')
 			if (fileHash === verify[1]) {
-				Log.info(`(${++process}/${total})${pkg.name}@${pkg.version} 下载完成`)
+				result.success++
 			} else {
-				Log.error(`(${++process}/${total})${pkg.name}@${pkg.version} 校验失败`)
+				result.failed.push(`${pkg.name}@${pkg.version}`)
 			}
+			bar.tick()
 		})
 
 		try {
-			await Promise.all(promises)
+			for (let i = 0; i < promises.length; i += threads) {
+				const task = promises.slice(i, i + threads)
+				await Promise.all(task)
+			}
 			Log.info('全部下载完成')
 		} catch (err) {
 			Log.error(err)
 		}
+		return result
 	}
 }
 

@@ -16,10 +16,11 @@ const { Log } = require('./util/Log')
 // 缓存路径
 const TMP_DIR = 'tmp'
 const OUTPUT_DIR = 'download'
+const DEFAULT_THREADS = 10
 const _cd = process.cwd()
 const _tmp = path.join(_cd, TMP_DIR)
 
-async function main () {
+async function main() {
 	try {
 		// 环境检查
 		const version = nodeVersion()
@@ -36,7 +37,7 @@ async function main () {
 		}
 
 		// 创建缓存
-		Log.info('创建临时目录 tmp')
+		Log.info('创建临时缓存')
 		if (shell.test('-e', _tmp)) {
 			shell.rm('-rf', _tmp)
 		}
@@ -70,18 +71,28 @@ async function main () {
 
 		// 下载包
 		Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
-		await lockfile.download(argv.output ? argv.output : path.join(_cd, OUTPUT_DIR))
-
-		// 失败处理
-
-		// 清除缓存
+		const result = await lockfile.download(
+			argv.output ? argv.output : path.join(_cd, OUTPUT_DIR),
+			argv.threads ? argv.threads : DEFAULT_THREADS
+		)
+		// 回显结果
+		if (result.success > 0) {
+			Log.info(`成功(${result.success})`)
+		}
+		if (result.skipped > 0) {
+			Log.info(`跳过(${result.skipped})`)
+		}
+		if (result.failed.length > 0) {
+			Log.info(`失败(${result.failed.length})`)
+			Log.info(result.failed.join('\n'))
+		}
 	} catch (err) {
 		Log.error(err)
 	} finally {
-		Log.info(`删除临时目录 tmp`)
+		// 清除缓存
+		Log.info(`清除临时缓存`)
 		shell.rm('-rf', TMP_DIR)
 		shell.exit()
 	}
 }
-
 main()
