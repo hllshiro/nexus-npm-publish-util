@@ -63,6 +63,7 @@ const argv = yargs
         type: 'number',
         default: 10
     })
+    .wrap(104) // 为了输出美观，需要调整行宽为适当的值
     .check((argv) => {
         if (!argv.name && !argv.input && !argv.package && !argv.publish) {
             throw new Error('[error] 至少指定--name/--input/--package/--publish中的一个')
