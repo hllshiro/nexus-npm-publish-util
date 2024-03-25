@@ -1,45 +1,43 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs')
+const http = require('http')
+const crypto = require('crypto')
 
-const downloadFile = async function (fileUrl, filePath) {
-  try {
-    const response = await axios.get(fileUrl, { responseType: "stream" });
-    const fileStream = fs.createWriteStream(filePath);
-    response.data.pipe(fileStream);
+/**
+ * 下载文件，存在则跳过
+ * @param url
+ * @param filePath
+ * @returns {Promise<unknown>}
+ */
+const downloadFile = async function (url, filePath) {
+	return new Promise((resolve, reject) => {
+		if (fs.existsSync(filePath)) {
+			resolve()
+		}
+		const ws = fs.createWriteStream(filePath)
+		http
+			.get(url, (res) => {
+				res.pipe(ws)
+				ws.on('finish', () => {
+					ws.close(() => resolve())
+				})
+			})
+			.on('error', (err) => {
+				fs.unlink(filePath, () => reject(err))
+			})
+	})
+}
 
-    return new Promise((resolve, reject) => {
-      fileStream.on("finish", () => resolve());
-      fileStream.on("error", (err) => reject(err));
-    });
-  } catch (err) {
-    console.error(`下载失败: ${err.message}`);
-  }
-};
-
-const download = async function (urlSet, savePath) {
-  if (!fs.existsSync(savePath)) {
-    fs.mkdirSync(savePath);
-  }
-  const downloadPromises = Array.from(urlSet).map(async (url, index) => {
-    const fileName = url.substring(url.lastIndexOf("/") + 1);
-    const filePath = path.join(savePath, fileName);
-    if (!fs.existsSync(filePath)) {
-      console.info(`[下载] ${index + 1}. ${fileName}`);
-      await downloadFile(url, filePath);
-    } else {
-      console.info(`[跳过] ${index + 1}. ${fileName}`);
-    }
-  });
-
-  try {
-    await Promise.all(downloadPromises);
-    console.info(`下载完成`);
-  } catch (err) {
-    console.error(`下载失败: ${err.message}`);
-  }
-};
+const calculateHash = async (filePath, method = 'sha1', result = 'base64') => {
+	return new Promise((resolve, reject) => {
+		const hash = crypto.createHash(method)
+		const rs = fs.createReadStream(filePath)
+		rs.on('error', reject)
+		rs.on('data', (chunk) => hash.update(chunk))
+		rs.on('end', () => resolve(hash.digest(result)))
+	})
+}
 
 module.exports = {
-  download
-};
+	downloadFile,
+	calculateHash
+}

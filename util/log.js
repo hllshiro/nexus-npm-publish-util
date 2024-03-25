@@ -1,18 +1,13 @@
-const shell = require("shelljs");
+const Log = {
+	info(...msg) {
+		console.info('[info] ', msg)
+	},
+	warn(...msg) {
+		console.warn('[warn] ', msg)
+	},
+	error(...msg) {
+		console.error('[error] ', msg)
+	}
+}
 
-const log = {
-  info(msg) {
-    shell.echo("[info] " + msg);
-  },
-  warn(msg) {
-    shell.echo("[warn] " + msg);
-  },
-  error(msg) {
-    shell.echo("[error] " + msg);
-  },
-  info(msg) {
-    shell.echo("[info] " + msg);
-  },
-};
-
-module.exports.log = log;
+module.exports.Log = Log

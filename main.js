@@ -4,83 +4,84 @@
  * 请确保路径 ./download 和 ./download/downloaded 存在
  * 若package.json中有冲突，请将force设置为true，追加'--legacy-peer-deps'参数
  */
-const fs = require("fs");
-const path = require("path");
-const shell = require("shelljs");
-const { execSync } = require("child_process");
+const fs = require('fs')
+const path = require('path')
+const shell = require('shelljs')
+const { execSync } = require('child_process')
 
-const { argv, nodeVersion } = require("./util/common");
-const { download } = require("./util/download");
-const { extractResolvedUrls } = require("./util/lockfile");
-const { log } = require("./util/log");
-
-// 检查node环境
-const version = nodeVersion();
-if (version == null) {
-  log.error("缺少node环境。");
-} else {
-  log.info(`使用node版本: ${version}`);
-}
+const { argv, nodeVersion, npmRegistry } = require('./util/common')
+const { Lockfile } = require('./util/lockfile')
+const { Log } = require('./util/Log')
 
 // 缓存路径
+const TMP_DIR = 'tmp'
+const OUTPUT_DIR = 'download'
 const _cd = process.cwd()
-const _tmp = path.join(_cd, "tmp");
+const _tmp = path.join(_cd, TMP_DIR)
 
-// 创建并进入临时目录
-log.info("创建临时目录 tmp");
-shell.mkdir("tmp");
-// process.chdir(_tmp)
+async function main () {
+	try {
+		// 环境检查
+		const version = nodeVersion()
+		if (version == null) {
+			throw new Error('未找到node命令')
+		} else {
+			Log.info(`node版本: ${version}`)
+		}
+		const registry = npmRegistry()
+		if (registry == null) {
+			throw new Error('未找到npm命令')
+		} else {
+			Log.info(`npm仓库: ${registry}`)
+		}
 
-let command = `npm install`;
-if (argv.name) {
-  command += " " + argv.name;
+		// 创建缓存
+		Log.info('创建临时目录 tmp')
+		if (shell.test('-e', _tmp)) {
+			shell.rm('-rf', _tmp)
+		}
+		shell.mkdir(_tmp)
+
+		// 创建命令
+		let command = `npm install`
+		if (argv.name) {
+			command += ' ' + argv.name
+		}
+		if (argv.package) {
+			shell.cp(argv.package, _tmp)
+		}
+		if (argv.force) {
+			command += ' --force'
+		}
+		if (argv.legary) {
+			command += ' --legacy-peer-deps'
+		}
+		command += ` --package-lock-only --prefix "${_tmp}"`
+		Log.info(`执行命令生成lock文件: ${command}`)
+
+		// 生成lock文件
+		const res = String(execSync(command))
+		Log.info('执行结果: ' + res.replaceAll('\n', ''))
+
+		// lock解析
+		Log.info('解析lock文件')
+		const content = fs.readFileSync(path.join(_tmp, 'package-lock.json'), 'utf8')
+		const lockfile = new Lockfile(content, registry)
+
+		// 下载包
+		Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
+		await lockfile.download(argv.output ? argv.output : path.join(_cd, OUTPUT_DIR))
+
+		// 失败处理
+
+		// 清除缓存
+	} catch (err) {
+		Log.error(err)
+	} finally {
+		Log.info(`删除临时目录 tmp`)
+		shell.rm('-rf', TMP_DIR)
+		shell.exit()
+	}
 }
-if (argv.package) {
-  shell.cp(argv.package, tmpPath);
-}
-if (argv.force) {
-  command += " --force";
-}
-if (argv.legary) {
-  command += " --legacy-peer-deps";
-}
-command += ` --package-lock-only --prefix ${_tmp}`;
-log.info(`执行命令: ${command}`);
-// 执行命令，生成lock文件
-const res = execSync(command, { cwd: _tmp });
 
-// 退出并删除临时目录
-log.info(`删除临时目录 tmp`);
-// process.chdir(_cd)
-shell.rm("-rf", "tmp");
-shell.exit();
-
-const downloadDir = "./download";
-
-if (target == null || target.trim() === "") {
-  target = "";
-} else {
-  target += " ";
-}
-
-command = `npm install ${target}--package-lock-only`;
-if (force) {
-  command += " --legacy-peer-deps";
-}
-
-console.log(`exec command: "${command}"`);
-exec(command, (error, stdout, stderror) => {
-  if (error) {
-    console.error("package-lock.json文件生成失败...", error);
-    return;
-  }
-  console.info("解析完成");
-  // 读取lock文件并反序列化
-  const packageLockData = fs.readFileSync("./package-lock.json", "utf8");
-  const packageLock = JSON.parse(packageLockData);
-  const urls = extractResolvedUrls(packageLock);
-
-  console.info(`总计获取到${urls.size}个依赖包`);
-  console.info("开始下载");
-  download(urls, downloadDir);
-});
+main()
