@@ -3,6 +3,8 @@ node_modules/
 .vscode/
 .idea/
 download/
+.cache/
+.tmp/
 dist/
 *.tgz
 *.log
