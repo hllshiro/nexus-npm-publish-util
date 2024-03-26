@@ -7,12 +7,11 @@
 const fs = require('fs')
 const path = require('path')
 const shell = require('shelljs')
-const { execSync } = require('child_process')
 
 const argv = require('./util/argv')
 const Common = require('./util/common')
 const Lockfile = require('./util/lockfile')
-const Log = require('./util/Log')
+const Log = require('./util/log')
 const { getPkgListFromService, publish } = require('./util/publish')
 
 // 缓存路径
@@ -78,7 +77,7 @@ const downloadMode = async () => {
 	Log.info(`执行命令生成lock文件: ${command}`)
 
 	// 生成lock文件
-	Log.info('执行结果: ' + String(execSync(command)).replaceAll(/[\n|\r]/g, ''))
+	Log.info('执行结果: ' + await Common.exec(command))
 
 	// lock解析
 	Log.info('解析lock文件')

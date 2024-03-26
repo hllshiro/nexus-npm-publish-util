@@ -58,7 +58,7 @@ const recursiveReq = async (publishURL, continuationToken, list = []) => {
  * @return {Promise<*[]>}
  */
 const getPkgListFromService = async (publishURL) => {
-	const bar = new ProgressBar('获取中: :elapseds', { total: Number.MAX_VALUE })
+	const bar = new ProgressBar('[progress] :elapseds', { total: Number.MAX_VALUE })
 	const timer = setInterval(() => {
 		bar.tick()
 	}, 100)
@@ -67,6 +67,7 @@ const getPkgListFromService = async (publishURL) => {
 	} catch (err) {
 		throw err
 	} finally {
+		console.info()
 		clearInterval(timer)
 	}
 }
@@ -99,7 +100,7 @@ const execCurl = async (curl, options) => {
  * @return {Promise<{success: number, failed: *[]}>}
  */
 const publish = async (publishList, cwd, url, auth, threads) => {
-	const bar = new ProgressBar('发布进度 [:bar] :percent', {
+	const bar = new ProgressBar('[progress] [:bar] :percent', {
 		total: publishList.length,
 		complete: '=',
 		incomplete: ' ',

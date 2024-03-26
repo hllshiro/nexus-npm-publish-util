@@ -1,4 +1,6 @@
 const shell = require('shelljs')
+const ProgressBar = require('progress')
+const { exec } = require('child_process')
 
 const Common = {
 	/**
@@ -25,6 +27,28 @@ const Common = {
 				url += '/'
 			}
 			return url
+		}
+	},
+	exec: async (command) => {
+		const bar = new ProgressBar('[progress] :elapseds', { total: Number.MAX_VALUE })
+		const timer = setInterval(() => {
+			bar.tick()
+		}, 100)
+		try {
+			return await new Promise((resolve, reject) => {
+				exec(command, (error, stdout, stderr) => {
+					if (error) {
+						reject(error)
+					} else {
+						resolve(stdout.replaceAll(/[\n|\r]/g, ''))
+					}
+				})
+			})
+		} catch (err) {
+			throw err
+		} finally {
+			console.info()
+			clearInterval(timer)
 		}
 	}
 }

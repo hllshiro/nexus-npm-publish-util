@@ -36,7 +36,7 @@ class Lockfile {
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
 		}
-		const bar = new ProgressBar('下载进度 [:bar] :percent', {
+		const bar = new ProgressBar('[progress] [:bar] :percent', {
 			total: this.resolvedPackages.size,
 			complete: '=',
 			incomplete: ' ',
