@@ -23,7 +23,7 @@ const argv = yargs
         type: 'string'
     })
     .option('registry', {
-        description: '覆盖默认registry配置',
+        description: '覆盖默认registry配置，用于包解析',
         type: 'string'
     })
     .option('force', {
