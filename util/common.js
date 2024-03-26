@@ -1,5 +1,4 @@
 const shell = require('shelljs')
-const path = require('path')
 
 const Common = {
 	/**

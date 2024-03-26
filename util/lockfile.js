@@ -1,7 +1,7 @@
 /**
  * lockfile解析类
  */
-const { Log } = require('./log')
+const Log = require('./log')
 const shell = require('shelljs')
 const fs = require('fs')
 const { downloadFile, calculateHash } = require('./download')
@@ -31,8 +31,7 @@ class Lockfile {
 	async download(output, threads) {
 		const result = {
 			success: 0,
-			failed: [],
-			skipped: 0
+			failed: []
 		}
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
@@ -45,16 +44,14 @@ class Lockfile {
 		})
 		const promises = Array.from(this.resolvedPackages).map(async (pkg) => {
 			const savePath = path.join(output, pkg.file)
-			if (fs.existsSync(savePath)) {
-				result.skipped++
-				bar.tick()
-				return
-			}
-			const err = await downloadFile(pkg.resolved, savePath)
-			if (err) {
-				result.failed.push(`${pkg.name}@${pkg.version}`)
-				bar.tick()
-				return
+			if (!fs.existsSync(savePath)) {
+				// 已存在跳过下载
+				const err = await downloadFile(pkg.resolved, savePath)
+				if (err) {
+					result.failed.push(`${pkg.name}@${pkg.version}`)
+					bar.tick()
+					return
+				}
 			}
 			const verify = pkg.integrity.split('-')
 			const fileHash = await calculateHash(savePath, verify[0], 'base64')

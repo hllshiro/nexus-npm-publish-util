@@ -5,7 +5,6 @@
  * 私服地址 publishRestful
  * 私服用户 nexusUser
  */
-let fs = require('fs')
 const { exec } = require('child_process')
 const http = require('http')
 const ProgressBar = require('progress')
@@ -82,7 +81,7 @@ const execCurl = async (curl, options) => {
 	return new Promise((resolve, reject) => {
 		exec(curl, options, (error, stdout, stderr) => {
 			if (error) {
-				reject(err)
+				reject(error)
 			} else {
 				resolve()
 			}

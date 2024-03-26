@@ -92,9 +92,6 @@ const downloadMode = async () => {
 	if (res.success > 0) {
 		Log.info(`成功(${res.success})`)
 	}
-	if (res.skipped > 0) {
-		Log.info(`跳过(${res.skipped})`)
-	}
 	if (res.failed.length > 0) {
 		Log.info(`失败(${res.failed.length})`)
 		Log.info(res.failed.join('\n'))
