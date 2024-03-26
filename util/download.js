@@ -1,5 +1,6 @@
 const fs = require('fs')
 const http = require('http')
+const https = require('https')
 const crypto = require('crypto')
 
 /**
@@ -11,7 +12,8 @@ const crypto = require('crypto')
 const downloadFile = async function (url, filePath) {
 	return new Promise((resolve, reject) => {
 		const ws = fs.createWriteStream(filePath)
-		http
+		const request = url.startsWith('https://') ? https : http
+		request
 			.get(url, (res) => {
 				res.pipe(ws)
 				ws.on('finish', () => {
