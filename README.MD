@@ -16,6 +16,5 @@ Options:
       --publish-url       远程仓库发布地址                                                      [string]
       --publish-auth      远程仓库认证信息，例如[用户名:密码]                                   [string]
       --force-publish     强制发布所有的包，默认跳过远程仓库已存在的包        [boolean] [default: false]
-      --thread-number     下载和发布的并发线程数                                  [number] [default: 10]
       --help              Show help                                                            [boolean]
 ```

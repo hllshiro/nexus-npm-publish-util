@@ -26,9 +26,8 @@ class Lockfile {
 	/**
 	 * 下载依赖包
 	 * @param output 保存路径
-	 * @param threads 下载线程数
 	 */
-	async download(output, threads) {
+	async download(output) {
 		const result = {
 			success: 0,
 			failed: []
@@ -44,44 +43,38 @@ class Lockfile {
 		})
 		const promises = Array.from(this.resolvedPackages).map(async (pkg) => {
 			try {
-				bar.tick({ pkg: pkg.file })
 				const savePath = path.join(output, pkg.file)
-				if (!fs.existsSync(savePath)) {
-					// 已存在跳过下载
-					const err = await downloadFile(pkg.resolved, savePath)
-					if (err) {
-						result.failed.push(pkg)
-						return
+				const verify = pkg.integrity.split('-')
+				let need = true
+				if (fs.existsSync(savePath)) {
+					// 已存在，校验是否需要重新下载
+					const fileHash = await calculateHash(savePath, verify[0], 'base64')
+					if (fileHash === verify[1]) {
+						result.success++
+						need = false
 					}
 				}
-				const verify = pkg.integrity.split('-')
-				const fileHash = await calculateHash(savePath, verify[0], 'base64')
-				if (fileHash === verify[1]) {
+				if (need) {
+					const err = await downloadFile(pkg.resolved, savePath)
+					if (err) {
+						throw new Error(err)
+					}
+					const fileHash = await calculateHash(savePath, verify[0], 'base64')
+					if (fileHash !== verify[1]) {
+						throw new Error('校验不匹配')
+					}
 					result.success++
-				} else {
-					result.failed.push(pkg)
 				}
 			} catch (err) {
+				Log.error('\n下载错误', err)
 				result.failed.push(pkg)
+			} finally {
+				bar.tick({ pkg: pkg.file })
 			}
 		})
-
-		try {
-			for (let i = 0; i < promises.length; i += threads) {
-				const task = promises.slice(i, i + threads)
-				await Promise.all(task)
-			}
-			bar.update(1, { pkg: '' })
-			Log.info('全部下载完成')
-		} catch (err) {
-			bar.interrupt('下载意外终止')
-			Log.error('下载失败', err)
-		} finally {
-			// 移除错误的包
-			result.failed.forEach((pkg) => {
-				fs.rmSync(path.join(output, pkg.file))
-			})
-		}
+		await Promise.all(promises)
+		bar.update(1, { pkg: '' })
+		Log.info('全部下载完成')
 		return result
 	}
 }

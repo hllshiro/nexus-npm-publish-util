@@ -90,14 +90,14 @@ const downloadMode = async () => {
 
 	// 下载包
 	Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
-	const res = await lockfile.download(argv.output, argv.threadNumber)
+	const res = await lockfile.download(argv.output)
 	// 回显结果
 	if (res.success > 0) {
 		Log.info(`成功(${res.success})`)
 	}
 	if (res.failed.length > 0) {
 		Log.info(`失败(${res.failed.length})`)
-		Log.info(res.failed.map((pkg) => `${pkg.name}@${pkg.version}`).join('\n'))
+		Log.info(res.failed.map((pkg) => `${pkg.name}@${pkg.version}: ${pkg.resolved}`).join('\n'))
 	}
 }
 
@@ -117,7 +117,7 @@ const publishMode = async () => {
 	if (list.length > 0) {
 		Log.info(`找到${list.length}个待上传的包`)
 		Log.info('开始发布')
-		const res = await publish(list, argv.publishDir, argv.publishUrl, argv.publishAuth, argv.threadNumber)
+		const res = await publish(list, argv.publishDir, argv.publishUrl, argv.publishAuth)
 		// 回显结果
 		if (res.success > 0) {
 			Log.info(`成功(${res.success})`)

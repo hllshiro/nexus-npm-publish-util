@@ -96,10 +96,9 @@ const execCurl = async (curl, options) => {
  * @param auth 认证
  * @param url 地址
  * @param cwd 包地址
- * @param threads 线程数
  * @return {Promise<{success: number, failed: *[]}>}
  */
-const publish = async (publishList, cwd, url, auth, threads) => {
+const publish = async (publishList, cwd, url, auth) => {
 	const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
 		total: publishList.length + 1,
 		complete: '=',
@@ -111,27 +110,23 @@ const publish = async (publishList, cwd, url, auth, threads) => {
 		failed: []
 	}
 	const promises = publishList.map(async (pkg) => {
-		bar.tick({ pkg })
-		const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
-		const err = await execCurl(curl, { cwd: cwd })
-		if (err) {
-			result.failed.push(pkg)
-		} else {
+		try {
+			const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
+			const err = await execCurl(curl, { cwd: cwd })
+			if (err) {
+				throw err
+			}
 			result.success++
+		} catch (err) {
+			Log.error('\n发布错误', err)
+			result.failed.push(pkg)
+		} finally {
+			bar.tick({ pkg })
 		}
 	})
-
-	try {
-		for (let i = 0; i < promises.length; i += threads) {
-			const task = promises.slice(i, i + threads)
-			await Promise.all(task)
-		}
-		bar.update(1, { pkg: '' })
-		Log.info('全部发布完成')
-	} catch (err) {
-		bar.interrupt('发布意外终止')
-		Log.error('发布失败', err)
-	}
+	await Promise.all(promises)
+	bar.update(1, { pkg: '' })
+	Log.info('全部发布完成')
 	return result
 }
 
