@@ -75,7 +75,7 @@ const argv = yargs
             throw new Error('[error] 不能同时使用--force和--legacy-peer-deps参数')
         }
         if (argv.publish && (!argv.publishUrl || !argv.publishAuth)) {
-            throw new Error('[error] 发布模式下必须指定--publish-url和--auth参数')
+            throw new Error('[error] 发布模式下必须指定--publish-url和--publish-auth参数')
         }
         return true
     })
