@@ -9,7 +9,7 @@ const Common = {
 		if (!shell.which('node')) {
 			return null
 		} else {
-			return shell.exec('node -v', { silent: true }).replaceAll('\n', '')
+			return shell.exec('node -v', { silent: true }).replaceAll(/[\n|\r]/g, '')
 		}
 	},
 	/**
@@ -20,7 +20,7 @@ const Common = {
 		if (!shell.which('npm')) {
 			return null
 		} else {
-			let url = shell.exec('npm config get registry', { silent: true }).replaceAll('\n', '')
+			let url = shell.exec('npm config get registry', { silent: true }).replaceAll(/[\n|\r]/g, '')
 			if (!url.endsWith('/')) {
 				url += '/'
 			}

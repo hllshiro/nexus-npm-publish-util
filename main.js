@@ -44,11 +44,11 @@ const clearCache = () => {
 const downloadMode = async () => {
 	Log.info('下载模式')
 	// 环境检查
-	const npmVer = Common.nodeVersion()
-	if (npmVer == null) {
+	const nodeVer = Common.nodeVersion()
+	if (nodeVer == null) {
 		throw new Error('未找到node命令')
 	} else {
-		Log.info(`node版本: ${npmVer}`)
+		Log.info(`node版本: ${nodeVer}`)
 	}
 	const npmRegistry = Common.npmRegistry()
 	if (npmRegistry == null) {
@@ -63,7 +63,7 @@ const downloadMode = async () => {
 		command += ' ' + argv.name
 	}
 	if (argv.input) {
-		command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, ' ')
+		command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, '')
 	}
 	if (argv.package) {
 		shell.cp(argv.package, _CACHE)
@@ -78,7 +78,7 @@ const downloadMode = async () => {
 	Log.info(`执行命令生成lock文件: ${command}`)
 
 	// 生成lock文件
-	Log.info('执行结果: ' + String(execSync(command)).replaceAll(/[\n|\r]/g, ' '))
+	Log.info('执行结果: ' + String(execSync(command)).replaceAll(/[\n|\r]/g, ''))
 
 	// lock解析
 	Log.info('解析lock文件')
