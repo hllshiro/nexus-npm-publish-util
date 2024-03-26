@@ -100,8 +100,8 @@ const execCurl = async (curl, options) => {
  * @return {Promise<{success: number, failed: *[]}>}
  */
 const publish = async (publishList, cwd, url, auth, threads) => {
-	const bar = new ProgressBar('[progress] [:bar] :percent', {
-		total: publishList.length,
+	const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
+		total: publishList.length + 1,
 		complete: '=',
 		incomplete: ' ',
 		width: 100
@@ -111,6 +111,7 @@ const publish = async (publishList, cwd, url, auth, threads) => {
 		failed: []
 	}
 	const promises = publishList.map(async (pkg) => {
+		bar.tick({ pkg })
 		const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
 		const err = await execCurl(curl, { cwd: cwd })
 		if (err) {
@@ -118,7 +119,6 @@ const publish = async (publishList, cwd, url, auth, threads) => {
 		} else {
 			result.success++
 		}
-		bar.tick()
 	})
 
 	try {
@@ -126,6 +126,7 @@ const publish = async (publishList, cwd, url, auth, threads) => {
 			const task = promises.slice(i, i + threads)
 			await Promise.all(task)
 		}
+		bar.update(1, { pkg: '' })
 		Log.info('全部发布完成')
 	} catch (err) {
 		bar.interrupt('发布意外终止')

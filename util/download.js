@@ -11,18 +11,30 @@ const crypto = require('crypto')
  */
 const downloadFile = async function (url, filePath) {
 	return new Promise((resolve, reject) => {
-		const ws = fs.createWriteStream(filePath)
-		const request = url.startsWith('https://') ? https : http
-		request
-			.get(url, (res) => {
-				res.pipe(ws)
-				ws.on('finish', () => {
-					ws.close(() => resolve())
+		try {
+			const ws = fs.createWriteStream(filePath)
+			const request = url.startsWith('https://') ? https : http
+			request
+				.get(
+					url,
+					{
+						keepAlive: true,
+						maxRetries: 3,
+						timeout: 10000
+					},
+					(res) => {
+						res.pipe(ws)
+						ws.on('finish', () => {
+							ws.close(() => resolve())
+						})
+					}
+				)
+				.on('error', (err) => {
+					fs.unlink(filePath, () => reject(err))
 				})
-			})
-			.on('error', (err) => {
-				fs.unlink(filePath, () => reject(err))
-			})
+		} catch (err) {
+			reject(err)
+		}
 	})
 }
 

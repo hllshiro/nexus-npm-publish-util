@@ -36,31 +36,34 @@ class Lockfile {
 		if (!shell.test('-e', output)) {
 			shell.mkdir(output)
 		}
-		const bar = new ProgressBar('[progress] [:bar] :percent', {
-			total: this.resolvedPackages.size,
+		const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
+			total: this.resolvedPackages.size + 1,
 			complete: '=',
 			incomplete: ' ',
 			width: 100
 		})
 		const promises = Array.from(this.resolvedPackages).map(async (pkg) => {
-			const savePath = path.join(output, pkg.file)
-			if (!fs.existsSync(savePath)) {
-				// 已存在跳过下载
-				const err = await downloadFile(pkg.resolved, savePath)
-				if (err) {
-					result.failed.push(pkg)
-					bar.tick()
-					return
+			try {
+				bar.tick({ pkg: pkg.file })
+				const savePath = path.join(output, pkg.file)
+				if (!fs.existsSync(savePath)) {
+					// 已存在跳过下载
+					const err = await downloadFile(pkg.resolved, savePath)
+					if (err) {
+						result.failed.push(pkg)
+						return
+					}
 				}
-			}
-			const verify = pkg.integrity.split('-')
-			const fileHash = await calculateHash(savePath, verify[0], 'base64')
-			if (fileHash === verify[1]) {
-				result.success++
-			} else {
+				const verify = pkg.integrity.split('-')
+				const fileHash = await calculateHash(savePath, verify[0], 'base64')
+				if (fileHash === verify[1]) {
+					result.success++
+				} else {
+					result.failed.push(pkg)
+				}
+			} catch (err) {
 				result.failed.push(pkg)
 			}
-			bar.tick()
 		})
 
 		try {
@@ -68,6 +71,7 @@ class Lockfile {
 				const task = promises.slice(i, i + threads)
 				await Promise.all(task)
 			}
+			bar.update(1, { pkg: '' })
 			Log.info('全部下载完成')
 		} catch (err) {
 			bar.interrupt('下载意外终止')

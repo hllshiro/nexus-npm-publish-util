@@ -69,7 +69,7 @@ const argv = yargs
     .option('thread-number', {
         description: '下载和发布的并发线程数',
         type: 'number',
-        default: 10
+        default: 1
     })
     .wrap(104) // 为了输出美观，需要调整行宽为适当的值
     .check((argv) => {
