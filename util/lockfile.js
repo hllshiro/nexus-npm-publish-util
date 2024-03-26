@@ -58,7 +58,7 @@ class Lockfile {
 			if (fileHash === verify[1]) {
 				result.success++
 			} else {
-				result.failed.push(`${pkg.name}@${pkg.version}`)
+				result.failed.push(pkg)
 			}
 			bar.tick()
 		})
@@ -72,11 +72,12 @@ class Lockfile {
 		} catch (err) {
 			bar.interrupt('下载意外终止')
 			Log.error('下载失败', err)
+		} finally {
+			// 移除错误的包
+			result.failed.forEach((pkg) => {
+				fs.rmSync(path.join(output, pkg.file))
+			})
 		}
-		// 移除错误的包
-		result.failed.forEach(pkg => {
-			fs.rmSync(path.join(output, pkg.file))
-		})
 		return result
 	}
 }
