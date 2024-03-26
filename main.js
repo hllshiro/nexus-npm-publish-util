@@ -97,7 +97,7 @@ const downloadMode = async () => {
 	}
 	if (res.failed.length > 0) {
 		Log.info(`失败(${res.failed.length})`)
-		Log.info(res.failed.join('\n'))
+		Log.info(res.failed.map((pkg) => `${pkg.name}@${pkg.version}`).join('\n'))
 	}
 }
 

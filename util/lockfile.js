@@ -48,7 +48,7 @@ class Lockfile {
 				// 已存在跳过下载
 				const err = await downloadFile(pkg.resolved, savePath)
 				if (err) {
-					result.failed.push(`${pkg.name}@${pkg.version}`)
+					result.failed.push(pkg)
 					bar.tick()
 					return
 				}
@@ -73,6 +73,10 @@ class Lockfile {
 			bar.interrupt('下载意外终止')
 			Log.error('下载失败', err)
 		}
+		// 移除错误的包
+		result.failed.forEach(pkg => {
+			fs.rmSync(path.join(output, pkg.file))
+		})
 		return result
 	}
 }

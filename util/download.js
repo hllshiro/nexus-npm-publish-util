@@ -4,7 +4,7 @@ const https = require('https')
 const crypto = require('crypto')
 
 /**
- * 下载文件，存在则跳过
+ * 下载文件
  * @param url
  * @param filePath
  * @returns {Promise<unknown>}
