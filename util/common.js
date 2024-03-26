@@ -40,7 +40,7 @@ const Common = {
 					if (error) {
 						reject(error)
 					} else {
-						resolve(stdout.replaceAll(/[\n|\r]/g, ''))
+						resolve(stdout)
 					}
 				})
 			})

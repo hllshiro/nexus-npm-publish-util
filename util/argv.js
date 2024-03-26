@@ -18,6 +18,14 @@ const argv = yargs
         description: '待解析的package.json文件路径',
         type: 'string'
     })
+    .option('lock', {
+        description: '直接解析package-lock.json文件，优先级最高',
+        type: 'string'
+    })
+    .option('registry', {
+        description: '覆盖默认registry配置',
+        type: 'string'
+    })
     .option('force', {
         description: '调用"npm install"时追加--force参数',
         type: 'boolean',
@@ -65,8 +73,8 @@ const argv = yargs
     })
     .wrap(104) // 为了输出美观，需要调整行宽为适当的值
     .check((argv) => {
-        if (!argv.name && !argv.input && !argv.package && !argv.publish) {
-            throw new Error('[error] 至少指定--name/--input/--package/--publish中的一个')
+        if (!argv.name && !argv.input && !argv.package && !argv.lock && !argv.publish) {
+            throw new Error('[error] 至少指定--name/--input/--package/--lock/--publish中的一个')
         }
         if (argv.name && argv.input) {
             throw new Error('[error] 不能同时使用--name和--input参数')

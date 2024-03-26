@@ -49,35 +49,39 @@ const downloadMode = async () => {
 	} else {
 		Log.info(`node版本: ${nodeVer}`)
 	}
-	const npmRegistry = Common.npmRegistry()
+	const npmRegistry = argv.registry ? argv.registry : Common.npmRegistry()
 	if (npmRegistry == null) {
 		throw new Error('未找到npm命令')
 	} else {
 		Log.info(`npm仓库: ${npmRegistry}`)
 	}
 	createCache()
-	// 创建命令
-	let command = `npm install`
-	if (argv.name) {
-		command += ' ' + argv.name
-	}
-	if (argv.input) {
-		command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, '')
-	}
-	if (argv.package) {
-		shell.cp(argv.package, _CACHE)
-	}
-	if (argv.force) {
-		command += ' --force'
-	}
-	if (argv.legacyPeerDeps) {
-		command += ' --legacy-peer-deps'
-	}
-	command += ` --package-lock-only --prefix "${_CACHE}"`
-	Log.info(`执行命令生成lock文件: ${command}`)
+	if (argv.lock) {
+		// lock模式
+		shell.cp(argv.lock, _CACHE)
+	} else {
+		// 生成lock
+		let command = `npm install`
+		if (argv.name) {
+			command += ' ' + argv.name
+		}
+		if (argv.input) {
+			command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, '')
+		}
+		if (argv.package) {
+			shell.cp(argv.package, _CACHE)
+		}
+		if (argv.force) {
+			command += ' --force'
+		}
+		if (argv.legacyPeerDeps) {
+			command += ' --legacy-peer-deps'
+		}
+		command += ` --package-lock-only --prefix "${_CACHE}"`
+		Log.info(`执行命令生成lock文件: ${command}`)
 
-	// 生成lock文件
-	Log.info('执行结果: ' + await Common.exec(command))
+		Log.info(await Common.exec(command))
+	}
 
 	// lock解析
 	Log.info('解析lock文件')

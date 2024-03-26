@@ -107,7 +107,7 @@ const resolveV3 = (packages, baseURL) => {
 			// 依赖包
 			const properties = packages[pkg]
 			const resolved = resolveURL(properties.resolved, baseURL)
-			if (resolved.length < 3) {
+			if (resolved.length !== 3) {
 				Log.warn(`包解析错误: ${pkg} ${properties.resolved}`)
 				continue
 			}
