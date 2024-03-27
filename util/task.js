@@ -16,7 +16,7 @@ const Task = {
 			const promise = Promise.resolve().then(() => fn(i))
 			ret.push(promise)
 			if (limit <= arr.length) {
-				const e = promise.then(() => executing.split(executing.indexOf(e), 1))
+				const e = promise.then(() => executing.splice(executing.indexOf(e), 1))
 				executing.push(e)
 				if (executing.length >= limit) {
 					await Promise.race(executing)
