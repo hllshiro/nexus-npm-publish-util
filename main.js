@@ -96,8 +96,10 @@ const downloadMode = async () => {
 		Log.info(`成功(${res.success})`)
 	}
 	if (res.failed.length > 0) {
-		Log.info(`失败(${res.failed.length})`)
-		Log.info(res.failed.map((pkg) => `${pkg.name}@${pkg.version}: ${pkg.resolved}`).join('\n'))
+		Log.error(
+			`失败(${res.failed.length})`,
+			res.failed.map((pkg) => `${pkg.name}@${pkg.version}: ${pkg.resolved}`).join('\n')
+		)
 	}
 }
 
@@ -123,8 +125,7 @@ const publishMode = async () => {
 			Log.info(`成功(${res.success})`)
 		}
 		if (res.failed.length > 0) {
-			Log.info(`失败(${res.failed.length})`)
-			Log.info(res.failed.join('\n'))
+			Log.error(`失败(${res.failed.length})`, res.failed.join('\n'))
 		}
 	} else {
 		Log.error('未找到待发布的包或全部存在于远端仓库')
