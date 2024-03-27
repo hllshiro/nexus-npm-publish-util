@@ -1,6 +1,7 @@
 const shell = require('shelljs')
-const ProgressBar = require('progress')
 const { exec } = require('child_process')
+const ProgressBar = require('progress')
+const Log = require("./log");
 
 const Common = {
 	/**
@@ -47,8 +48,8 @@ const Common = {
 		} catch (err) {
 			throw err
 		} finally {
-			console.info()
 			clearInterval(timer)
+			bar.update(1)
 		}
 	}
 }

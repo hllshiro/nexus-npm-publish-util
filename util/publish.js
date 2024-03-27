@@ -5,10 +5,12 @@
  * 私服地址 publishRestful
  * 私服用户 nexusUser
  */
-const { exec } = require('child_process')
 const http = require('http')
+const https = require('https')
+const { exec } = require('child_process')
 const ProgressBar = require('progress')
 const Log = require('./log')
+const Task = require('./task')
 
 /**
  * 递归扫描远程仓库
@@ -19,8 +21,9 @@ const Log = require('./log')
  */
 const recursiveReq = async (publishURL, continuationToken, list = []) => {
 	const token = continuationToken ? '&continuationToken=' + continuationToken : ''
+	const request = publishURL.startsWith('https://') ? https : http
 	const data = await new Promise(async (resolve, reject) => {
-		http
+		request
 			.get(publishURL + token, (res) => {
 				let raw = ''
 				res.on('data', (chunk) => {
@@ -67,7 +70,7 @@ const getPkgListFromService = async (publishURL) => {
 	} catch (err) {
 		throw err
 	} finally {
-		console.info()
+		bar.update(1)
 		clearInterval(timer)
 	}
 }
@@ -96,9 +99,10 @@ const execCurl = async (curl, options) => {
  * @param auth 认证
  * @param url 地址
  * @param cwd 包地址
+ * @param limit 并发数
  * @return {Promise<{success: number, failed: *[]}>}
  */
-const publish = async (publishList, cwd, url, auth) => {
+const publish = async (publishList, cwd, url, auth, limit) => {
 	const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
 		total: publishList.length + 1,
 		complete: '=',
@@ -109,22 +113,25 @@ const publish = async (publishList, cwd, url, auth) => {
 		success: 0,
 		failed: []
 	}
-	const promises = publishList.map(async (pkg) => {
-		try {
-			const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
-			const err = await execCurl(curl, { cwd: cwd })
-			if (err) {
-				throw err
+	await Task.async(
+		publishList,
+		async (pkg) => {
+			try {
+				const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
+				const err = await execCurl(curl, { cwd: cwd })
+				if (err) {
+					throw err
+				}
+				result.success++
+			} catch (err) {
+				Log.error('\n发布错误', err)
+				result.failed.push(pkg)
+			} finally {
+				bar.tick({ pkg })
 			}
-			result.success++
-		} catch (err) {
-			Log.error('\n发布错误', err)
-			result.failed.push(pkg)
-		} finally {
-			bar.tick({ pkg })
-		}
-	})
-	await Promise.all(promises)
+		},
+		limit
+	)
 	bar.update(1, { pkg: '' })
 	Log.info('全部发布完成')
 	return result

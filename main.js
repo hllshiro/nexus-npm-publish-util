@@ -79,8 +79,7 @@ const downloadMode = async () => {
 		}
 		command += ` --package-lock-only --prefix "${_CACHE}"`
 		Log.info(`执行命令生成lock文件: ${command}`)
-
-		Log.info(await Common.exec(command))
+		Log.info('执行结果：' + (await Common.exec(command)))
 	}
 
 	// lock解析
@@ -90,7 +89,7 @@ const downloadMode = async () => {
 
 	// 下载包
 	Log.info(`共获取到${lockfile.resolvedPackages.size}个依赖`)
-	const res = await lockfile.download(argv.output)
+	const res = await lockfile.download(argv.output, argv.threadNumber)
 	// 回显结果
 	if (res.success > 0) {
 		Log.info(`成功(${res.success})`)
@@ -119,7 +118,7 @@ const publishMode = async () => {
 	if (list.length > 0) {
 		Log.info(`找到${list.length}个待上传的包`)
 		Log.info('开始发布')
-		const res = await publish(list, argv.publishDir, argv.publishUrl, argv.publishAuth)
+		const res = await publish(list, argv.publishDir, argv.publishUrl, argv.publishAuth, argv.threadNumber)
 		// 回显结果
 		if (res.success > 0) {
 			Log.info(`成功(${res.success})`)

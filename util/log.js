@@ -1,13 +1,14 @@
-const Log = {
-	info(msg) {
-		console.info('[info] ' + msg)
-	},
-	warn(msg) {
-		console.warn('[warn] ' + msg)
-	},
-	error(msg, ...o) {
-		console.error('[error] ' + msg, o)
-	}
-}
+const log4js = require('log4js')
 
+log4js.configure({
+	appenders: {
+		console: { type: 'console' },
+		file: { type: 'file', filename: 'output.log' }
+	},
+	categories: {
+		default: { appenders: ['console', 'file'], level: 'info' }
+	}
+})
+
+const Log = log4js.getLogger()
 module.exports = Log

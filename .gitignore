@@ -1,4 +1,4 @@
-package-lock.json
+*-lock.*
 node_modules/
 .vscode/
 .idea/

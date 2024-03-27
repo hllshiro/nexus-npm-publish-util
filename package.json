@@ -1,26 +1,27 @@
 {
-  "name": "lpm",
-  "version": "0.0.1",
-  "description": "npm包缓存工具",
-  "bin": "./main.js",
-  "scripts": {
-    "start": "node ./main.js",
-    "build": "pkg ."
-  },
-  "pkg": {
-    "scripts": "main.js",
-    "targets": [
-      "node16-win-x64"
-    ],
-    "outputPath": "dist"
-  },
-  "dependencies": {
-    "pkg": "^5.8.1",
-    "progress": "^2.0.3",
-    "shelljs": "^0.8.5",
-    "yargs": "^17.7.2"
-  },
-  "devDependencies": {
-    "prettier": "3.1.0"
-  }
+	"name": "lpm",
+	"version": "1.2.0",
+	"description": "npm包缓存和发布工具",
+	"bin": "./main.js",
+	"scripts": {
+		"start": "node ./main.js",
+		"build": "pkg ."
+	},
+	"pkg": {
+		"scripts": "main.js",
+		"targets": [
+			"node16-win-x64"
+		],
+		"outputPath": "dist"
+	},
+	"dependencies": {
+		"log4js": "^6.9.1",
+		"pkg": "^5.8.1",
+		"progress": "^2.0.3",
+		"shelljs": "^0.8.5",
+		"yargs": "^17.7.2"
+	},
+	"devDependencies": {
+		"prettier": "3.1.0"
+	}
 }

@@ -46,3 +46,17 @@ Options:
 原因：可能与npm解析依赖树机制有关，具体不详。
 
 解决方法：把外网生成的lock文件拷贝到项目下，提交。
+
+## 开发计划
+
+- [x] 支持下载依赖
+  - [x] 从命令传入包名
+  - [x] 从文件传入包名
+  - [x] 解析package.json文件
+  - [x] 解析package-lock.json文件，支持lockfileVersion: 2和lockfileVersion: 3
+  - [x] 下载时跳过已存在的包
+  - [x] 下载结果校验
+- [x] 支持发布到nexus仓库
+  - [x] 发布时跳过远端仓库已有的包
+- [x] 优化
+  - [x] 修改下载和上传的Promise.all，实现并发控制
