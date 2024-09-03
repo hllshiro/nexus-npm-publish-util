@@ -133,6 +133,7 @@ const resolveV3 = (packages, baseURL) => {
 }
 
 const resolveURL = (url, baseURL) => {
+	if (url == null) return null
 	const reg = new RegExp(`${baseURL}(.+)\/-\/(.+\.tgz)`)
 	return url.match(reg)
 }
