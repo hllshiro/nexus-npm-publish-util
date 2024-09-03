@@ -1,6 +1,6 @@
 {
 	"name": "lpm",
-	"version": "1.2.0",
+	"version": "1.2.3",
 	"description": "npm包缓存和发布工具",
 	"bin": "./main.js",
 	"scripts": {

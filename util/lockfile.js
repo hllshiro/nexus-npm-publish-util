@@ -111,12 +111,10 @@ const resolveLockfile = (lockfileObj, baseURL) => {
  */
 const resolveV3 = (packages, baseURL) => {
 	const res = new Set()
-	for (const pkg in packages) {
-		if (packages.hasOwnProperty(pkg) && blackList.indexOf(pkg) === -1) {
-			// 依赖包
-			const properties = packages[pkg]
+	for (const [pkg, properties] of Object.entries(packages)) {
+		if (!blackList.includes(pkg)) {
 			const resolved = resolveURL(properties.resolved, baseURL)
-			if (resolved == null || resolved.length !== 3) {
+			if (!resolved || resolved.length !== 3) {
 				Log.warn(`包解析错误: ${pkg} ${properties.resolved}`)
 				continue
 			}
