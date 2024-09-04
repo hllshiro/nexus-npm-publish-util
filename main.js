@@ -13,6 +13,7 @@ import * as Common from './util/common.js'
 import Lockfile from './util/lockfile.js'
 import Log from './util/log.js'
 import { getPkgListFromService, publish } from './util/publish.js'
+import readline from 'readline-sync'
 
 // 缓存路径
 const __filename = fileURLToPath(import.meta.url)
@@ -57,6 +58,7 @@ const downloadMode = async () => {
   } else {
     Log.info(`npm仓库: ${npmRegistry}`)
   }
+
   createCache()
   if (argv.lock) {
     // lock模式
@@ -81,7 +83,7 @@ const downloadMode = async () => {
     }
     command += ` --package-lock-only --prefix "${_CACHE}"`
     Log.info(`执行命令生成lock文件: ${command}`)
-    Log.info('执行结果：' + (await Common.execWithProgress(command)))
+    Log.info('执行结果：' + Common.execSyncWithProgress(command))
   }
 
   // lock解析
@@ -133,7 +135,20 @@ const publishMode = async () => {
   }
 }
 
+const defaultParam = () => {
+  if (!argv.name && !argv.input && !argv.package && !argv.lock && !argv.publish) {
+    // 当没有指定任何参数时，同步等待从控制台接受一个输入
+    argv.name = readline.question('Please input package: ')
+    // 校验输入是否符合npm包名规范
+    if (!/^(@?[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9_-]+$/.test(argv.name)) {
+      Log.error('输入的包名不符合npm包名规范')
+      process.exit(1)
+    }
+  }
+}
+
 const main = async () => {
+  defaultParam()
   try {
     if (argv.publish) {
       await publishMode()

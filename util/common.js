@@ -1,21 +1,18 @@
-import { exec as execCallback } from 'child_process'
-import { promisify } from 'util'
+import { execSync } from 'child_process'
 import ProgressBar from 'progress'
 
-const exec = promisify(execCallback)
-
-export const nodeVersion = async () => {
+export const nodeVersion = () => {
   try {
-    const { stdout } = await exec('node -v', { silent: true })
+    const stdout = execSync('node -v', { silent: true, encoding: 'utf8' })
     return stdout.trim()
   } catch (error) {
     return null
   }
 }
 
-export const npmRegistry = async () => {
+export const npmRegistry = () => {
   try {
-    let { stdout } = await exec('npm config get registry', { silent: true })
+    let stdout = execSync('npm config get registry', { silent: true, encoding: 'utf8' })
     let url = stdout.trim()
     if (!url.endsWith('/')) {
       url += '/'
@@ -26,14 +23,14 @@ export const npmRegistry = async () => {
   }
 }
 
-export const execWithProgress = async (command) => {
+export const execSyncWithProgress = (command) => {
   const bar = new ProgressBar('[progress] :elapseds', { total: Number.MAX_VALUE })
   const timer = setInterval(() => {
     bar.tick()
   }, 100)
 
   try {
-    const { stdout } = await exec(command)
+    const stdout = execSync(command, { silent: true, encoding: 'utf8' })
     return stdout
   } catch (err) {
     throw err

@@ -5,12 +5,14 @@
   "type": "module",
   "bin": "./main.js",
   "scripts": {
+    "debug": "bun --inspect-brk ./main.js",
     "start": "bun run ./main.js",
     "build": "bun build --compile --minify --sourcemap --outfile dist/lpm.exe --target node ./main.js"
   },
   "dependencies": {
     "log4js": "^6.9.1",
     "progress": "^2.0.3",
+    "readline-sync": "^1.4.10",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
