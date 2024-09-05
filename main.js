@@ -43,6 +43,9 @@ const clearCache = () => {
   }
 }
 
+/**
+ * 下载模式
+ */
 const downloadMode = async () => {
   Log.info('下载模式')
   // 环境检查
@@ -59,31 +62,35 @@ const downloadMode = async () => {
     Log.info(`npm仓库: ${npmRegistry}`)
   }
 
+  // 创建缓存
   createCache()
+
   if (argv.lock) {
     // lock模式
     fs.copyFileSync(argv.lock, path.join(_CACHE, 'package-lock.json'))
   } else {
     // 生成lock
-    let command = `npm install`
+    let cmd = `npm`
+    let args = ['install']
     if (argv.name) {
-      command += ' ' + argv.name
+      args.push(argv.name)
     }
     if (argv.input) {
-      command += (' ' + fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, '')
+      args.push(fs.readFileSync(argv.input)).replaceAll(/[\n|\r]/g, '')
     }
     if (argv.package) {
       fs.copyFileSync(argv.package, path.join(_CACHE, 'package.json'))
     }
     if (argv.force) {
-      command += ' --force'
+      args.push('--force')
     }
     if (argv.legacyPeerDeps) {
-      command += ' --legacy-peer-deps'
+      args.push('--legacy-peer-deps')
     }
-    command += ` --package-lock-only --prefix "${_CACHE}"`
-    Log.info(`执行命令生成lock文件: ${command}`)
-    Log.info('执行结果：' + Common.execSyncWithProgress(command))
+    args.push('--package-lock-only', '--prefix', _CACHE)
+    Log.info(`生成lock: ${cmd} ${args.join(' ')}`)
+    await Common.execInherit(cmd, args)
+    Log.info('生成lock结束')
   }
 
   // lock解析
@@ -106,6 +113,9 @@ const downloadMode = async () => {
   }
 }
 
+/**
+ * 发布模式
+ */
 const publishMode = async () => {
   Log.info('发布模式')
   // 获取服务端缓存
@@ -135,6 +145,9 @@ const publishMode = async () => {
   }
 }
 
+/**
+ * 默认参数
+ */
 const defaultParam = () => {
   if (!argv.name && !argv.input && !argv.package && !argv.lock && !argv.publish) {
     // 当没有指定任何参数时，同步等待从控制台接受一个输入
@@ -147,6 +160,9 @@ const defaultParam = () => {
   }
 }
 
+/**
+ * 主函数
+ */
 const main = async () => {
   defaultParam()
   try {
@@ -162,6 +178,9 @@ const main = async () => {
   }
 }
 
+/**
+ * 入口
+ */
 main().then(() => {
   Log.info('执行结束')
 })

@@ -1,3 +1,10 @@
+/**
+ * 并发执行任务
+ * @param {Array} arr 任务列表
+ * @param {Function} fn 任务函数
+ * @param {number} limit 并发数，默认1
+ * @returns {Promise} 执行结果
+ */
 export const async = async (arr, fn, limit = 1) => {
   const ret = []
   const executing = []
@@ -15,6 +22,13 @@ export const async = async (arr, fn, limit = 1) => {
   return Promise.all(ret)
 }
 
+/**
+ * 并发执行任务并返回结果
+ * @param {Array} arr 任务列表
+ * @param {Function} fn 任务函数
+ * @param {number} limit 并发数，默认1
+ * @returns {Promise} 执行结果
+ */
 export const asyncResult = (arr, fn, limit = 1) => {
   const args = [...arr]
   const results = []

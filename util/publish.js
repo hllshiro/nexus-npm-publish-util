@@ -5,6 +5,13 @@ import ProgressBar from 'progress'
 import Log from './log.js'
 import * as Task from './task.js'
 
+/**
+ * 递归请求
+ * @param {string} publishURL 发布地址
+ * @param {string} continuationToken 续传token
+ * @param {Array} list 列表
+ * @returns {Promise} 列表
+ */
 const recursiveReq = async (publishURL, continuationToken, list = []) => {
   const token = continuationToken ? '&continuationToken=' + continuationToken : ''
   const request = publishURL.startsWith('https://') ? https : http
@@ -40,6 +47,11 @@ const recursiveReq = async (publishURL, continuationToken, list = []) => {
   return list
 }
 
+/**
+ * 从服务获取包列表
+ * @param {string} publishURL 发布地址
+ * @returns {Promise} 包列表
+ */
 export const getPkgListFromService = async (publishURL) => {
   const bar = new ProgressBar('[progress] :elapseds', { total: Number.MAX_VALUE })
   const timer = setInterval(() => {
@@ -55,6 +67,12 @@ export const getPkgListFromService = async (publishURL) => {
   }
 }
 
+/**
+ * 执行curl命令
+ * @param {string} curl curl命令
+ * @param {object} options 选项
+ * @returns {Promise} 执行结果
+ */
 const execCurl = async (curl, options) => {
   return new Promise((resolve, reject) => {
     exec(curl, options, (error, stdout, stderr) => {
@@ -67,6 +85,15 @@ const execCurl = async (curl, options) => {
   })
 }
 
+/**
+ * 发布包
+ * @param {Array} publishList 发布列表
+ * @param {string} cwd 工作目录
+ * @param {string} url 发布地址
+ * @param {string} auth 认证信息
+ * @param {number} limit 并发数
+ * @returns {Promise} 发布结果
+ */
 export const publish = async (publishList, cwd, url, auth, limit) => {
   const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
     total: publishList.length + 1,

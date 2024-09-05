@@ -3,6 +3,12 @@ import http from 'http'
 import https from 'https'
 import crypto from 'crypto'
 
+/**
+ * 下载文件
+ * @param {string} url 文件地址
+ * @param {string} filePath 文件路径
+ * @returns {Promise} 下载结果
+ */
 export const downloadFile = async function (url, filePath) {
   return new Promise((resolve, reject) => {
     try {
@@ -32,6 +38,13 @@ export const downloadFile = async function (url, filePath) {
   })
 }
 
+/**
+ * 计算文件的hash值
+ * @param {string} filePath 文件路径
+ * @param {string} method 哈希方法，默认sha1
+ * @param {string} result 哈希结果，默认base64
+ * @returns {Promise} 哈希值
+ */
 export const calculateHash = async (filePath, method = 'sha1', result = 'base64') => {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash(method)

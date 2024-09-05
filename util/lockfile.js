@@ -49,7 +49,7 @@ export default class Lockfile {
             }
             const fileHash = await calculateHash(savePath, verify[0], 'base64')
             if (fileHash !== verify[1]) {
-              throw new Error('校验不匹配')
+              throw new Error(`${pkg.name} 校验不匹配`)
             }
             result.success++
           }
