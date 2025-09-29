@@ -181,6 +181,8 @@ const defaultParam = () => {
  * 主函数
  */
 const main = async () => {
+  Log.info(`调用开始: ${new Date()}`)
+  Log.info(`用户指令: ${process.args}`)
   defaultParam()
   try {
     if (argv.publish) {
@@ -199,5 +201,5 @@ const main = async () => {
  * 入口
  */
 main().then(() => {
-  Log.info('执行结束')
+  Log.info(`执行结束: ${new Data()}`)
 })

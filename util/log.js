@@ -6,9 +6,10 @@ log4js.configure({
     file: { type: 'file', filename: 'output.log' }
   },
   categories: {
-    default: { appenders: ['console', 'file'], level: 'info' }
+    default: { appenders: ['console', 'file'], level: 'info' },
+    fileonly: { appenders: ['file'], level: 'info' }
   }
 })
 
-const Log = log4js.getLogger()
-export default Log
+export const fileLog = log4js.getLogger('fileonly')
+export const Log = log4js.getLogger()

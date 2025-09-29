@@ -1,4 +1,4 @@
-import Log from './log.js'
+import { Log, fileLog } from './log.js'
 import fs from 'fs'
 import path from 'path'
 import ProgressBar from 'progress'
@@ -54,7 +54,9 @@ export default class Lockfile {
             result.success++
           }
         } catch (err) {
-          Log.error('\n下载错误', err)
+          const msg = `下载错误: ${pkg.name}@${pkg.version} - ${err.message}`
+          bar.interrupt(msg)
+          fileLog.error(msg)
           result.failed.push(pkg)
         } finally {
           bar.tick({ pkg: pkg.file })

@@ -2,7 +2,7 @@ import http from 'http'
 import https from 'https'
 import { exec } from 'child_process'
 import ProgressBar from 'progress'
-import Log from './log.js'
+import { Log, fileLog } from './log.js'
 import * as Task from './task.js'
 
 /**
@@ -116,8 +116,10 @@ export const publish = async (publishList, cwd, url, auth, limit) => {
         }
         result.success++
       } catch (err) {
-        Log.error('\n发布错误', err)
-        result.failed.push(pkg)
+        const msg = `发布错误: ${pkg.name}@${pkgConf.version} - ${err.message}`
+        bar.interrupt(msg)
+        fileLog.error(msg)
+        result.failed.push(msg)
       } finally {
         bar.tick({ pkg })
       }
