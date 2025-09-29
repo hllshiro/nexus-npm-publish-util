@@ -5,7 +5,7 @@ import ProgressBar from 'progress'
 import { downloadFile, calculateHash } from './download.js'
 import * as Task from './task.js'
 
-const blackList = ['', , '.', '..']
+const blackList = ['', '.', '..']
 
 export default class Lockfile {
   resolvedPackages
@@ -104,6 +104,6 @@ const resolveV3 = (packages, baseURL) => {
 
 const resolveURL = (url, baseURL) => {
   if (url == null) return null
-  const reg = new RegExp(`${baseURL}(.+)\/-\/(.+\.tgz)`)
+  const reg = new RegExp(`${baseURL}(.+)/-/(.+.tgz)`)
   return url.match(reg)
 }

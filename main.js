@@ -6,18 +6,15 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 
 import argv from './util/argv.js'
 import * as Common from './util/common.js'
 import Lockfile from './util/lockfile.js'
-import Log from './util/log.js'
+import { Log } from './util/log.js'
 import { getPkgListFromService, publish } from './util/publish.js'
 import readline from 'readline-sync'
 
 // 缓存路径
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 const _CD = process.cwd()
 const _CACHE = path.join(_CD, '.cache')
 
@@ -49,41 +46,38 @@ const clearCache = () => {
 const downloadMode = async () => {
   Log.info('下载模式')
   // 环境检查
-  const nodeVer = Common.nodeVersion()
-  if (nodeVer == null) {
-    throw new Error('未找到node命令')
-  } else {
-    Log.info(`node版本: ${nodeVer}`)
+  let npmRegistry
+  try {
+    const nodeVer = Common.nodeVersion()
+    Log.info(`node version: ${nodeVer}`)
+    npmRegistry = argv.registry ? argv.registry : Common.npmRegistry()
+    Log.info(`npm registry: ${npmRegistry}`)
+  } catch (err) {
+    Log.error(err.message)
+    process.exit()
   }
-  const npmRegistry = argv.registry ? argv.registry : Common.npmRegistry()
-  if (npmRegistry == null) {
-    throw new Error('未找到npm命令')
-  } else {
-    Log.info(`npm仓库: ${npmRegistry}`)
-  }
-
   // 创建缓存
   createCache()
 
   if (argv.lock) {
-    const lockfilePath = argv.lock;
-    const tempLockPath = path.join(_CACHE, 'package-lock.json');
+    const lockfilePath = argv.lock
+    const tempLockPath = path.join(_CACHE, 'package-lock.json')
 
     if (lockfilePath.endsWith('.yaml') || lockfilePath.endsWith('.yml')) {
       // pnpm-lock.yaml: 在内存中转换为 package-lock.json
-      Log.info('检测到 pnpm-lock.yaml，开始在内存中进行转换...');
+      Log.info('检测到 pnpm-lock.yaml，开始在内存中进行转换...')
       try {
-        const { convert } = await import('./lib/converter.js');
-        const pnpmLockContent = fs.readFileSync(lockfilePath, 'utf8');
-        const npmLockContent = convert(pnpmLockContent);
-        fs.writeFileSync(tempLockPath, npmLockContent);
-        Log.info('转换成功');
+        const { convert } = await import('./lib/converter.js')
+        const pnpmLockContent = fs.readFileSync(lockfilePath, 'utf8')
+        const npmLockContent = convert(pnpmLockContent)
+        fs.writeFileSync(tempLockPath, npmLockContent)
+        Log.info('转换成功')
       } catch (err) {
-        throw new Error(`pnpm-lock.yaml 转换失败: ${err.message}`);
+        throw new Error(`pnpm-lock.yaml 转换失败: ${err.message}`)
       }
     } else {
       // package-lock.json: 直接复制
-      fs.copyFileSync(lockfilePath, tempLockPath);
+      fs.copyFileSync(lockfilePath, tempLockPath)
     }
   } else {
     // 生成lock
@@ -201,5 +195,5 @@ const main = async () => {
  * 入口
  */
 main().then(() => {
-  Log.info(`执行结束: ${new Data()}`)
+  Log.info(`执行结束: ${new Date()}`)
 })

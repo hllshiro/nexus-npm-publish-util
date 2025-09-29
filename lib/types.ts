@@ -1,49 +1,49 @@
-import { Stats } from 'fs';
-export const runtimeContext = { RUSH: 'RUSH_MONOREPO' };
+import { Stats } from 'fs'
+export const runtimeContext = { RUSH: 'RUSH_MONOREPO' }
 export type PnpmLockObject = {
-  lockfileVersion: number;
+  lockfileVersion: number
   packages: {
     [packageName: string]: {
       resolution: {
-        integrity: string;
-      };
-      dev?: boolean;
-    };
-  };
-};
+        integrity: string
+      }
+      dev?: boolean
+    }
+  }
+}
 
 export type NpmLockPackage = {
-  version: string;
-  integrity: string;
-  resolved: string;
+  version: string
+  integrity: string
+  resolved: string
   requires?: {
-    [packageName: string]: string;
-  };
+    [packageName: string]: string
+  }
   dependencies?: {
-    [packageName: string]: NpmLockPackage;
-  };
-  dev?: boolean;
-};
+    [packageName: string]: NpmLockPackage
+  }
+  dev?: boolean
+}
 
 export type NpmLockObject = {
-  name: string;
-  version: string;
-  lockfileVersion: number;
-  requires: boolean;
+  name: string
+  version: string
+  lockfileVersion: number
+  requires: boolean
   packages: {
-    [packageName: string]: NpmLockPackage;
-  };
+    [packageName: string]: NpmLockPackage
+  }
   dependencies: {
-    [packageName: string]: NpmLockPackage;
-  };
-};
+    [packageName: string]: NpmLockPackage
+  }
+}
 
 export type HandleConversionOpts = {
-  ctx?: keyof typeof runtimeContext;
-  pnpmPath?: string;
-};
+  ctx?: keyof typeof runtimeContext
+  pnpmPath?: string
+}
 
 export type FileStats = {
-  pnpmStat: Stats;
-  npmStat: Stats;
-};
+  pnpmStat: Stats
+  npmStat: Stats
+}

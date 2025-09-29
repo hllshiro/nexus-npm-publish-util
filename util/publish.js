@@ -15,7 +15,7 @@ import * as Task from './task.js'
 const recursiveReq = async (publishURL, continuationToken, list = []) => {
   const token = continuationToken ? '&continuationToken=' + continuationToken : ''
   const request = publishURL.startsWith('https://') ? https : http
-  const data = await new Promise(async (resolve, reject) => {
+  const data = await new Promise((resolve, reject) => {
     request
       .get(publishURL + token, (res) => {
         let raw = ''
@@ -59,8 +59,6 @@ export const getPkgListFromService = async (publishURL) => {
   }, 100)
   try {
     return await recursiveReq(publishURL, null)
-  } catch (err) {
-    throw err
   } finally {
     bar.update(1)
     clearInterval(timer)
@@ -75,7 +73,7 @@ export const getPkgListFromService = async (publishURL) => {
  */
 const execCurl = async (curl, options) => {
   return new Promise((resolve, reject) => {
-    exec(curl, options, (error, stdout, stderr) => {
+    exec(curl, options, (error) => {
       if (error) {
         reject(error)
       } else {
@@ -109,14 +107,14 @@ export const publish = async (publishList, cwd, url, auth, limit) => {
     publishList,
     async (pkg) => {
       try {
-        const curl = `curl -u ${auth} -X POST \"${url}\" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
+        const curl = `curl -u ${auth} -X POST "${url}" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`
         const err = await execCurl(curl, { cwd: cwd })
         if (err) {
           throw err
         }
         result.success++
       } catch (err) {
-        const msg = `发布错误: ${pkg.name}@${pkgConf.version} - ${err.message}`
+        const msg = `发布错误: ${pkg.name}@${pkg.version} - ${err.message}`
         bar.interrupt(msg)
         fileLog.error(msg)
         result.failed.push(msg)

@@ -5,9 +5,11 @@ download/
 .cache/
 .tmp/
 dist/
+
 *.tgz
 *.log
 *.mhtml
+
 bun.lockb
 package-lock.json
 pnpm-lock.yaml

@@ -5,12 +5,8 @@ import { spawn, execSync } from 'child_process'
  * @returns {string} node版本
  */
 export const nodeVersion = () => {
-  try {
-    const stdout = execSync('node -v', { silent: true, encoding: 'utf8' })
-    return stdout.trim()
-  } catch (error) {
-    return null
-  }
+  const stdout = execSync('node -v', { silent: true, encoding: 'utf8' })
+  return stdout.trim()
 }
 
 /**
@@ -18,16 +14,12 @@ export const nodeVersion = () => {
  * @returns {string} registry
  */
 export const npmRegistry = () => {
-  try {
-    let stdout = execSync('npm config get registry', { silent: true, encoding: 'utf8' })
-    let url = stdout.trim()
-    if (!url.endsWith('/')) {
-      url += '/'
-    }
-    return url
-  } catch (error) {
-    return null
+  let stdout = execSync('npm config get registry', { silent: true, encoding: 'utf8' })
+  let url = stdout.trim()
+  if (!url.endsWith('/')) {
+    url += '/'
   }
+  return url
 }
 
 /**
