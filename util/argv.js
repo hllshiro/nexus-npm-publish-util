@@ -17,7 +17,7 @@ const argv = yargs(hideBin(process.argv))
     type: 'string'
   })
   .option('lock', {
-    description: 'Parse package-lock.json (highest priority)',
+    description: 'Parse package-lock.json or pnpm-lock.yaml (highest priority)',
     type: 'string'
   })
   .option('registry', {

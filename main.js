@@ -66,8 +66,25 @@ const downloadMode = async () => {
   createCache()
 
   if (argv.lock) {
-    // lock模式
-    fs.copyFileSync(argv.lock, path.join(_CACHE, 'package-lock.json'))
+    const lockfilePath = argv.lock;
+    const tempLockPath = path.join(_CACHE, 'package-lock.json');
+
+    if (lockfilePath.endsWith('.yaml') || lockfilePath.endsWith('.yml')) {
+      // pnpm-lock.yaml: 在内存中转换为 package-lock.json
+      Log.info('检测到 pnpm-lock.yaml，开始在内存中进行转换...');
+      try {
+        const { convert } = await import('./lib/converter.js');
+        const pnpmLockContent = fs.readFileSync(lockfilePath, 'utf8');
+        const npmLockContent = convert(pnpmLockContent);
+        fs.writeFileSync(tempLockPath, npmLockContent);
+        Log.info('转换成功');
+      } catch (err) {
+        throw new Error(`pnpm-lock.yaml 转换失败: ${err.message}`);
+      }
+    } else {
+      // package-lock.json: 直接复制
+      fs.copyFileSync(lockfilePath, tempLockPath);
+    }
   } else {
     // 生成lock
     let cmd = `npm`

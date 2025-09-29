@@ -1,4 +1,3 @@
-*-lock.*
 node_modules/
 .vscode/
 .idea/
@@ -9,3 +8,7 @@ dist/
 *.tgz
 *.log
 *.mhtml
+bun.lockb
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

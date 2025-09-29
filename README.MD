@@ -3,22 +3,25 @@
 ## 使用方法
 
 ```bash
+> lpm.exe --help
+
 Options:
-      --version           Show version number                                                  [boolean]
-  -n, --name              待下载的包名                                                          [string]
-  -i, --input             包含包名的文件路径                                                    [string]
-      --package           待解析的package.json文件路径                                          [string]
-      --lock              直接解析package-lock.json文件，优先级最高                             [string]
-      --registry          覆盖默认registry配置，用于包解析                                      [string]
-      --force             调用"npm install"时追加--force参数                  [boolean] [default: false]
-      --legacy-peer-deps  调用"npm install"时追加--legacy-peer-deps参数       [boolean] [default: false]
-  -o, --output            下载文件保存路径                                [string] [default: "download"]
-  -p, --publish           发布模式，优先级高于下载参数                        [boolean] [default: false]
-      --publish-dir       包含待发布包的目录路径                          [string] [default: "download"]
-      --publish-url       远程仓库发布地址                                                      [string]
-      --publish-auth      远程仓库认证信息，例如[用户名:密码]                                   [string]
-      --force-publish     强制发布所有的包，默认跳过远程仓库已存在的包        [boolean] [default: false]
-      --help              Show help                                                            [boolean]
+      --version           Show version number                                              [boolean]
+  -n, --name              Package name to download                                          [string]
+  -i, --input             File with package names                                           [string]
+      --package           Path to package.json                                              [string]
+      --lock              Parse package-lock.json or pnpm-lock.yaml (highest priority)      [string]
+      --registry          Override registry URL                                             [string]
+      --force             Add --force to npm install                      [boolean] [default: false]
+      --legacy-peer-deps  Add --legacy-peer-deps to npm install           [boolean] [default: false]
+  -o, --output            Download save path                          [string] [default: "download"]
+  -p, --publish           Enable publish mode (highest priority)          [boolean] [default: false]
+      --publish-dir       Directory with packages to publish          [string] [default: "download"]
+      --publish-url       Repository publish URL                                            [string]
+      --publish-auth      Repository auth (username:password)                               [string]
+      --force-publish     Force publish all packages                      [boolean] [default: false]
+      --thread-number     Concurrent threads for download/publish              [number] [default: 1]
+      --help              Show help                                                        [boolean]
 ```
 
 ## 已知问题
@@ -52,7 +55,7 @@ Options:
 - [x] 支持下载依赖
   - [x] 从命令传入包名
   - [x] 从文件传入包名
-  - [x] 解析package.json文件
+  - [x] 解析package.json文件或pnpm-lock.yaml文件
   - [x] 解析package-lock.json文件，支持lockfileVersion: 2和lockfileVersion: 3
   - [x] 下载时跳过已存在的包
   - [x] 下载结果校验
