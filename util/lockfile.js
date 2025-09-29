@@ -26,7 +26,7 @@ export default class Lockfile {
       total: this.resolvedPackages.size + 1,
       complete: '=',
       incomplete: ' ',
-      width: 100
+      width: 40
     })
     await Task.async(
       this.resolvedPackages,

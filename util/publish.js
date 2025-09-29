@@ -99,7 +99,7 @@ export const publish = async (publishList, cwd, url, auth, limit) => {
     total: publishList.length + 1,
     complete: '=',
     incomplete: ' ',
-    width: 100
+    width: 40
   })
   const result = {
     success: 0,

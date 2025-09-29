@@ -1,40 +1,24 @@
 import fs from 'fs'
-import http from 'http'
-import https from 'https'
+import fetch from 'node-fetch'
 import crypto from 'crypto'
 
 /**
- * 下载文件
+ * 下载文件（推荐方式）
  * @param {string} url 文件地址
  * @param {string} filePath 文件路径
- * @returns {Promise} 下载结果
+ * @returns {Promise<void>}
  */
 export const downloadFile = async function (url, filePath) {
-  return new Promise((resolve, reject) => {
-    try {
-      const ws = fs.createWriteStream(filePath)
-      const request = url.startsWith('https://') ? https : http
-      request
-        .get(
-          url,
-          {
-            keepAlive: true,
-            maxRetries: 3,
-            timeout: 10000
-          },
-          (res) => {
-            res.pipe(ws)
-            ws.on('finish', () => {
-              ws.close(() => resolve())
-            })
-          }
-        )
-        .on('error', (err) => {
-          fs.unlink(filePath, () => reject(err))
-        })
-    } catch (err) {
-      reject(err)
-    }
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`下载失败: ${res.statusText}`)
+  const fileStream = fs.createWriteStream(filePath)
+  await new Promise((resolve, reject) => {
+    res.body.pipe(fileStream)
+    res.body.on('error', reject)
+    fileStream.on('finish', () => {
+      fileStream.on('close', resolve)
+      fileStream.close()
+    })
   })
 }
 
