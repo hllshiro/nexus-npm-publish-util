@@ -24,7 +24,8 @@ export class LockfileService {
   private resolvedPackages: Set<PackageInfo>;
 
   constructor(content: string, baseURL: string) {
-    this.resolvedPackages = this.resolveLockfile(JSON.parse(content), baseURL);
+    const lockfileObj = JSON.parse(content) as NpmLockObject;
+    this.resolvedPackages = this.resolveLockfile(lockfileObj, baseURL);
   }
 
   /**

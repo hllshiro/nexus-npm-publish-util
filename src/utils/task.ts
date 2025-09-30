@@ -58,7 +58,7 @@ export const asyncResult = <T, R>(arr: T[], fn: (item: T) => Promise<R>, limit: 
                 results[i] = val;
               },
               () => {
-                throw new Error(`An error occurred: ${v}`);
+                throw new Error(`An error occurred: ${String(v)}`);
               }
             )
             .finally(() => {

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun run check && build --compile --minify --sourcemap --outfile dist/lpm.exe --target bun src/index.ts",
+    "build": "bun run check && bun build --compile --minify --sourcemap --outfile dist/lpm.exe --target bun src/index.ts",
     "format": "bunx prettier --write .",
     "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit",

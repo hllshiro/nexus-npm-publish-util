@@ -38,7 +38,7 @@ const recursiveReq = async (publishURL: string, continuationToken?: string, list
       });
   });
 
-  const json: ServicePackageListResponse = JSON.parse(data);
+  const json = JSON.parse(data) as ServicePackageListResponse;
 
   if (json.items) {
     list.push(

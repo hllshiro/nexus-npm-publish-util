@@ -211,7 +211,7 @@ export class App {
    * 运行应用
    */
   public async run(): Promise<void> {
-    logger.info(`调用开始: ${new Date()}`);
+    logger.info(`调用开始: ${new Date().toISOString()}`);
     logger.info(`用户指令: ${process.argv.join(' ')}`);
 
     this.defaultParam();
@@ -229,7 +229,7 @@ export class App {
       this.clearCache();
     }
 
-    logger.info(`执行结束: ${new Date()}`);
+    logger.info(`执行结束: ${new Date().toISOString()}`);
   }
 }
 
