@@ -7,14 +7,12 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
-    "build:exe": "bun build --compile --minify --sourcemap --outfile dist/lpm.exe --target bun src/index.ts",
-    "test": "bun test",
-    "test:exe": "dist/lpm.exe --version && dist/lpm.exe --help",
+    "build": "bun run check && build --compile --minify --sourcemap --outfile dist/lpm.exe --target bun src/index.ts",
     "format": "bunx prettier --write .",
     "lint": "bunx eslint .",
-    "type-check": "tsc --noEmit",
-    "verify": "bun run type-check && bun run build:exe && bun run test:exe"
+    "typecheck": "tsc --noEmit",
+    "check": "bun run lint && bun run typecheck",
+    "verify": "bun run check && bun run build:exe && bun run test:exe"
   },
   "dependencies": {
     "log4js": "^6.9.1",
