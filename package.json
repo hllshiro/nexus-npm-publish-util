@@ -12,7 +12,12 @@
     "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck",
-    "verify": "bun run check && bun run build:exe && bun run test:exe"
+    "test": "bun run test/run-tests.ts",
+    "test:direct": "bun test test/download.test.ts",
+    "test:verbose": "bun test test/download.test.ts --verbose",
+    "test:watch": "bun test test/download.test.ts --watch",
+    "test:cleanup": "bun run test/cleanup.ts",
+    "verify": "bun run check && bun run build && bun run test"
   },
   "dependencies": {
     "log4js": "^6.9.1",

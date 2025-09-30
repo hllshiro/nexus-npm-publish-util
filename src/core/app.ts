@@ -100,7 +100,8 @@ export class App {
       }
       if (this.config.input) {
         const inputContent = fs.readFileSync(this.config.input, 'utf8');
-        args.push(inputContent.replace(/[\n\r]/g, ''));
+        const packages = inputContent.split(/[\n\r]+/).filter((pkg) => pkg.trim() !== '');
+        args.push(...packages);
       }
       if (this.config.package) {
         fs.copyFileSync(this.config.package, path.join(_CACHE, 'package.json'));
