@@ -1,50 +1,63 @@
 /**
  * 并发执行任务
- * @param {Array} arr 任务列表
+ * @param {Array<T>} arr 任务列表
  * @param {Function} fn 任务函数
  * @param {number} limit 并发数，默认1
- * @returns {Promise} 执行结果
+ * @returns {Promise<R[]>} 执行结果
  */
-export const async = async (arr, fn, limit = 1) => {
-  const ret = []
-  const executing = []
+const asyncFn = async <T, R>(arr: T[], fn: (item: T) => Promise<R>, limit: number = 1): Promise<R[]> => {
+  const ret: Promise<R>[] = []
+  const executing: Promise<void>[] = []
+
   for (const i of arr) {
     const promise = Promise.resolve().then(() => fn(i))
     ret.push(promise)
+
     if (limit <= arr.length) {
-      const e = promise.then(() => executing.splice(executing.indexOf(e), 1))
+      const e = promise.then(() => {
+        const index = executing.indexOf(e)
+        if (index > -1) {
+          executing.splice(index, 1)
+        }
+      })
       executing.push(e)
+
       if (executing.length >= limit) {
         await Promise.race(executing)
       }
     }
   }
+
   return Promise.all(ret)
 }
 
+// Export with the original name using object property syntax to avoid keyword conflict
+export { asyncFn as async }
+
 /**
  * 并发执行任务并返回结果
- * @param {Array} arr 任务列表
+ * @param {Array<T>} arr 任务列表
  * @param {Function} fn 任务函数
  * @param {number} limit 并发数，默认1
- * @returns {Promise} 执行结果
+ * @returns {Promise<R[]>} 执行结果
  */
-export const asyncResult = (arr, fn, limit = 1) => {
+export const asyncResult = <T, R>(arr: T[], fn: (item: T) => Promise<R>, limit: number = 1): Promise<R[]> => {
   const args = [...arr]
-  const results = []
+  const results: R[] = []
   let runningCount = 0
   let resultIndex = 0
   let resultCount = 0
 
   return new Promise((resolve) => {
-    function run() {
+    function run(): void {
       while (runningCount < limit && args.length > 0) {
         runningCount++
-        ;((i) => {
+        ;((i: number): void => {
           const v = args.shift()
+          if (!v) return
           fn(v)
             .then(
-              (val) => {
+              (val: R) => {
                 results[i] = val
               },
               () => {

@@ -1,0 +1,87 @@
+/**
+ * 错误代码枚举
+ */
+export enum ErrorCode {
+  // 配置相关错误
+  INVALID_CONFIG = 'INVALID_CONFIG',
+  MISSING_REQUIRED_CONFIG = 'MISSING_REQUIRED_CONFIG',
+  CONFIG_VALIDATION_FAILED = 'CONFIG_VALIDATION_FAILED',
+
+  // 文件操作错误
+  FILE_NOT_FOUND = 'FILE_NOT_FOUND',
+  FILE_READ_ERROR = 'FILE_READ_ERROR',
+  FILE_WRITE_ERROR = 'FILE_WRITE_ERROR',
+  FILE_PERMISSION_ERROR = 'FILE_PERMISSION_ERROR',
+  DIRECTORY_CREATE_ERROR = 'DIRECTORY_CREATE_ERROR',
+
+  // 下载相关错误
+  DOWNLOAD_FAILED = 'DOWNLOAD_FAILED',
+  DOWNLOAD_TIMEOUT = 'DOWNLOAD_TIMEOUT',
+  DOWNLOAD_NETWORK_ERROR = 'DOWNLOAD_NETWORK_ERROR',
+  DOWNLOAD_INTEGRITY_ERROR = 'DOWNLOAD_INTEGRITY_ERROR',
+  DOWNLOAD_URL_INVALID = 'DOWNLOAD_URL_INVALID',
+
+  // 发布相关错误
+  PUBLISH_FAILED = 'PUBLISH_FAILED',
+  PUBLISH_AUTH_ERROR = 'PUBLISH_AUTH_ERROR',
+  PUBLISH_NETWORK_ERROR = 'PUBLISH_NETWORK_ERROR',
+  PUBLISH_PACKAGE_NOT_FOUND = 'PUBLISH_PACKAGE_NOT_FOUND',
+  PUBLISH_SERVER_ERROR = 'PUBLISH_SERVER_ERROR',
+
+  // 锁文件解析错误
+  LOCKFILE_PARSE_ERROR = 'LOCKFILE_PARSE_ERROR',
+  LOCKFILE_FORMAT_INVALID = 'LOCKFILE_FORMAT_INVALID',
+  LOCKFILE_VERSION_UNSUPPORTED = 'LOCKFILE_VERSION_UNSUPPORTED',
+  LOCKFILE_CONVERSION_ERROR = 'LOCKFILE_CONVERSION_ERROR',
+
+  // CLI相关错误
+  CLI_INVALID_ARGUMENT = 'CLI_INVALID_ARGUMENT',
+  CLI_MISSING_ARGUMENT = 'CLI_MISSING_ARGUMENT',
+  CLI_ARGUMENT_CONFLICT = 'CLI_ARGUMENT_CONFLICT',
+
+  // 通用错误
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  OPERATION_CANCELLED = 'OPERATION_CANCELLED',
+  TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+  NETWORK_ERROR = 'NETWORK_ERROR'
+}
+
+/**
+ * 错误严重程度枚举
+ */
+export enum ErrorSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
+}
+
+/**
+ * 错误上下文接口
+ */
+export interface ErrorContext {
+  operation?: string
+  file?: string
+  url?: string
+  package?: string
+  details?: Record<string, unknown>
+}
+
+/**
+ * 错误处理选项
+ */
+export interface ErrorHandlerOptions {
+  logError?: boolean
+  exitOnCritical?: boolean
+  showStackTrace?: boolean
+  suppressConsoleOutput?: boolean
+}
+
+/**
+ * 错误处理结果
+ */
+export interface ErrorHandlingResult {
+  handled: boolean
+  shouldExit: boolean
+  exitCode: number
+}

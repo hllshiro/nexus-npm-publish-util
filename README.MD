@@ -1,5 +1,26 @@
 # npm包迁移工具
 
+基于TypeScript和Bun构建的npm包迁移工具，支持包下载、发布和锁文件解析。
+
+## 安装和构建
+
+```bash
+# 安装依赖
+bun install
+
+# 开发模式运行
+bun run dev
+
+# 构建可执行文件
+bun run build:exe
+
+# 运行测试
+bun run test
+
+# 验证构建
+bun run verify
+```
+
 ## 使用方法
 
 ```bash
@@ -50,7 +71,34 @@ Options:
 
 解决方法：把外网生成的lock文件拷贝到项目下，提交。
 
-## 开发计划
+## 技术栈
+
+- **运行时**: Bun
+- **语言**: TypeScript
+- **构建工具**: Bun build
+- **代码规范**: ESLint + Prettier
+
+## 项目结构
+
+```
+src/
+├── core/           # 核心业务逻辑
+│   ├── cli.ts      # CLI参数处理
+│   └── app.ts      # 应用主逻辑
+├── services/       # 业务服务层
+│   ├── publish.ts  # 发布服务
+│   └── lockfile.ts # 锁文件解析服务
+├── utils/          # 工具函数
+│   ├── file.ts     # 文件操作工具
+│   ├── task.ts     # 并发任务工具
+│   ├── logger.ts   # 日志工具
+│   └── common.ts   # 通用工具
+├── types/          # TypeScript类型定义
+│   └── index.ts    # 统一类型导出
+└── index.ts        # 应用入口点
+```
+
+## 功能特性
 
 - [x] 支持下载依赖
   - [x] 从命令传入包名
@@ -63,6 +111,10 @@ Options:
   - [x] 发布时跳过远端仓库已有的包
 - [x] 优化
   - [x] 修改下载和上传的Promise.all，实现并发控制
+- [x] TypeScript支持
+  - [x] 完整的类型安全
+  - [x] 模块化架构设计
+  - [x] 使用Bun运行时
 
 > 远程仓库已有包扫描效率很低，仓库中7000+包时，耗时约2分钟。
 > 主要受限于网络条件和nexus的API设计，每次调用只能获取10个，需要循环多次才能获取全部数据。

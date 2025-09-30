@@ -1,15 +1,23 @@
-node_modules/
+# IDE
 .vscode/
 .idea/
+.kiro/
+.cursor/
+.qoder/
+node_modules/
+
+# PROJECT
 download/
 .cache/
 .tmp/
 dist/
 
+# TMP
 *.tgz
 *.log
 *.mhtml
 
+# LCOK
 bun.lockb
 package-lock.json
 pnpm-lock.yaml

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+dist/
+
+# Config files
+package.json
+tsconfig.json
+.gitignore
+.prettierignore
+
+# Documentation
+*.md
+README.MD
+
+# VBS files
+*.vbs
+
+# Keep files
+.gitkeep
+
+# Lock files
+bun.lockb
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
