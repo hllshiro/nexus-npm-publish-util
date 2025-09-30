@@ -7,8 +7,8 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { exec } from 'node:child_process';
 import ProgressBar from 'progress';
-import { logger } from '../utils/logger.js';
-import { async as asyncTask } from '../utils/task.js';
+import { fileLogger, logger } from '../utils/logger.js';
+import { asyncFn } from '../utils/task.js';
 import type { PublishConfig, OperationResult, ServicePackageItem, ServicePackageListResponse } from '../types/index.js';
 
 /**
@@ -130,7 +130,7 @@ export const publish = async (
     failed: [],
   };
 
-  await asyncTask(
+  await asyncFn(
     publishList,
     async (pkg: string) => {
       try {
@@ -141,7 +141,7 @@ export const publish = async (
         const error = err as Error;
         const msg = `发布错误: ${pkg} - ${error.message}`;
         bar.interrupt(msg);
-        logger.error(msg);
+        fileLogger.error(msg);
         result.failed.push(msg);
       } finally {
         bar.tick({ pkg });

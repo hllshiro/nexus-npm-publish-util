@@ -3,35 +3,35 @@
  * 迁移自 util/lockfile.js, lib/createLock.ts, lib/converter.js
  */
 
-import path from 'path'
-import { parse } from 'yaml'
-import ProgressBar from 'progress'
+import path from 'path';
+import { parse } from 'yaml';
+import ProgressBar from 'progress';
 
-import type { NpmLockObject, NpmLockPackage, PnpmLockObject, PackageInfo, DownloadResult } from '@/types/index.js'
-import { logger } from '@/utils/logger.js'
-import { downloadFile, calculateHash, ensureDir, fileExists } from '@/utils/file.js'
-import { async as asyncTask } from '@/utils/task.js'
+import type { NpmLockObject, NpmLockPackage, PnpmLockObject, PackageInfo, DownloadResult } from '@/types/index.js';
+import { logger, fileLogger } from '@/utils/logger.js';
+import { downloadFile, calculateHash, ensureDir, fileExists } from '@/utils/file.js';
+import { asyncFn } from '@/utils/task';
 
 /**
  * 黑名单列表，用于过滤无效的包名
  */
-const blackList = ['', '.', '..']
+const blackList = ['', '.', '..'];
 
 /**
  * 锁文件解析服务类
  */
 export class LockfileService {
-  private resolvedPackages: Set<PackageInfo>
+  private resolvedPackages: Set<PackageInfo>;
 
   constructor(content: string, baseURL: string) {
-    this.resolvedPackages = this.resolveLockfile(JSON.parse(content), baseURL)
+    this.resolvedPackages = this.resolveLockfile(JSON.parse(content), baseURL);
   }
 
   /**
    * 获取解析后的包列表
    */
   public getResolvedPackages(): Set<PackageInfo> {
-    return this.resolvedPackages
+    return this.resolvedPackages;
   }
 
   /**
@@ -42,66 +42,66 @@ export class LockfileService {
    */
   public async download(output: string, limit: number): Promise<DownloadResult> {
     // 确保输出目录存在
-    await ensureDir(output)
+    await ensureDir(output);
 
     const result: DownloadResult = {
       success: 0,
-      failed: []
-    }
+      failed: [],
+    };
 
     const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
       total: this.resolvedPackages.size + 1,
       complete: '=',
       incomplete: ' ',
-      width: 40
-    })
+      width: 40,
+    });
 
-    await asyncTask(
+    await asyncFn(
       Array.from(this.resolvedPackages),
       async (pkg: PackageInfo) => {
         try {
-          const savePath = path.join(output, pkg.file)
-          const verify = pkg.integrity.split('-')
-          let needDownload = true
+          const savePath = path.join(output, pkg.file);
+          const verify = pkg.integrity.split('-');
+          let needDownload = true;
 
           // 检查文件是否已存在且校验通过
           if (await fileExists(savePath)) {
             const fileHash = await calculateHash(savePath, {
               method: verify[0] || 'sha1',
-              encoding: 'base64'
-            })
+              encoding: 'base64',
+            });
             if (fileHash === verify[1]) {
-              result.success++
-              needDownload = false
+              result.success++;
+              needDownload = false;
             }
           }
 
           if (needDownload) {
-            await downloadFile(pkg.resolved, savePath)
+            await downloadFile(pkg.resolved, savePath);
             const fileHash = await calculateHash(savePath, {
               method: verify[0] || 'sha1',
-              encoding: 'base64'
-            })
+              encoding: 'base64',
+            });
             if (fileHash !== verify[1]) {
-              throw new Error(`${pkg.name} 校验不匹配`)
+              throw new Error(`${pkg.name} 校验不匹配`);
             }
-            result.success++
+            result.success++;
           }
         } catch (err) {
-          const msg = `下载错误: ${pkg.name}@${pkg.version} - ${err instanceof Error ? err.message : String(err)}`
-          bar.interrupt(msg)
-          logger.error(msg)
-          result.failed.push(pkg)
+          const msg = `下载错误: ${pkg.name}@${pkg.version} - ${err instanceof Error ? err.message : String(err)}`;
+          bar.interrupt(msg);
+          fileLogger.error(msg);
+          result.failed.push(pkg);
         } finally {
-          bar.tick({ pkg: pkg.file })
+          bar.tick({ pkg: pkg.file });
         }
       },
       limit
-    )
+    );
 
-    bar.update(1, { pkg: '' })
-    logger.info('全部下载完成')
-    return result
+    bar.update(1, { pkg: '' });
+    logger.info('全部下载完成');
+    return result;
   }
 
   /**
@@ -113,11 +113,11 @@ export class LockfileService {
   private resolveLockfile(lockfileObj: NpmLockObject, baseURL: string): Set<PackageInfo> {
     switch (lockfileObj.lockfileVersion) {
       case 2:
-        return this.resolveV3(Object.assign(lockfileObj.packages, lockfileObj.dependencies), baseURL)
+        return this.resolveV3(Object.assign(lockfileObj.packages, lockfileObj.dependencies), baseURL);
       case 3:
-        return this.resolveV3(lockfileObj.packages, baseURL)
+        return this.resolveV3(lockfileObj.packages, baseURL);
       default:
-        throw new Error(`unsupported lockfile version: ${lockfileObj.lockfileVersion}`)
+        throw new Error(`unsupported lockfile version: ${lockfileObj.lockfileVersion}`);
     }
   }
 
@@ -128,26 +128,26 @@ export class LockfileService {
    * @returns 解析后的包集合
    */
   private resolveV3(packages: Record<string, NpmLockPackage>, baseURL: string): Set<PackageInfo> {
-    const res = new Set<PackageInfo>()
+    const res = new Set<PackageInfo>();
 
     for (const [pkg, properties] of Object.entries(packages)) {
       if (!blackList.includes(pkg)) {
-        const resolved = this.resolveURL(properties.resolved, baseURL)
+        const resolved = this.resolveURL(properties.resolved, baseURL);
         if (!resolved || resolved.length !== 3 || !resolved[1] || !resolved[2]) {
-          logger.warn(`包解析错误: ${pkg} ${properties.resolved}`)
-          continue
+          logger.warn(`包解析错误: ${pkg} ${properties.resolved}`);
+          continue;
         }
         res.add({
           name: resolved[1],
           file: resolved[2],
           version: properties.version,
           resolved: properties.resolved,
-          integrity: properties.integrity
-        })
+          integrity: properties.integrity,
+        });
       }
     }
 
-    return res
+    return res;
   }
 
   /**
@@ -157,9 +157,9 @@ export class LockfileService {
    * @returns 解析结果数组
    */
   private resolveURL(url: string | undefined, baseURL: string): RegExpMatchArray | null {
-    if (url == null) return null
-    const reg = new RegExp(`${baseURL}(.+)/-/(.+\\.tgz)`)
-    return url.match(reg)
+    if (url == null) return null;
+    const reg = new RegExp(`${baseURL}(.+)/-/(.+\\.tgz)`);
+    return url.match(reg);
   }
 }
 
@@ -169,7 +169,7 @@ export class LockfileService {
  * @returns npm package-lock.json 对象
  */
 export function createLock(pnpmLock: string): NpmLockObject {
-  const pnpmLockObject = parse(pnpmLock) as PnpmLockObject
+  const pnpmLockObject = parse(pnpmLock) as PnpmLockObject;
 
   // 转换 pnpm-lock 对象为 npm package-lock 对象
   const npmLockObject: NpmLockObject = {
@@ -178,43 +178,43 @@ export function createLock(pnpmLock: string): NpmLockObject {
     lockfileVersion: 2,
     requires: true,
     packages: {},
-    dependencies: {}
-  }
+    dependencies: {},
+  };
 
   Object.entries(pnpmLockObject.packages).forEach(([packageName, lockObj]) => {
-    let pkgName = packageName.startsWith('/') ? packageName.substring(1) : packageName
-    let version = pkgName.substring(pkgName.lastIndexOf('@') + 1)
-    pkgName = pkgName.substring(0, pkgName.lastIndexOf('@'))
-    let scopedPkgName = pkgName
+    let pkgName = packageName.startsWith('/') ? packageName.substring(1) : packageName;
+    let version = pkgName.substring(pkgName.lastIndexOf('@') + 1);
+    pkgName = pkgName.substring(0, pkgName.lastIndexOf('@'));
+    let scopedPkgName = pkgName;
 
     if (pkgName.startsWith('@')) {
-      scopedPkgName = pkgName
-      pkgName = pkgName.substring(pkgName.indexOf('/') + 1)
+      scopedPkgName = pkgName;
+      pkgName = pkgName.substring(pkgName.indexOf('/') + 1);
     }
 
-    const resolved = `https://registry.npmjs.org/${scopedPkgName}/-/${pkgName}-${version}.tgz`
+    const resolved = `https://registry.npmjs.org/${scopedPkgName}/-/${pkgName}-${version}.tgz`;
 
-    const dev = lockObj.dev || false
-    const integrity = lockObj.resolution?.integrity || ''
+    const dev = lockObj.dev || false;
+    const integrity = lockObj.resolution?.integrity || '';
     const baseDepObj: NpmLockPackage = {
       version,
       resolved,
       integrity,
-      dev
-    }
+      dev,
+    };
 
-    const requires = { [scopedPkgName]: version }
-    const dependencies = { [scopedPkgName]: baseDepObj }
+    const requires = { [scopedPkgName]: version };
+    const dependencies = { [scopedPkgName]: baseDepObj };
     const pkgDepObj: NpmLockPackage = {
       ...baseDepObj,
       requires,
-      dependencies
-    }
-    npmLockObject.packages[`node_modules/${scopedPkgName}@${version}`] = pkgDepObj
-    npmLockObject.dependencies[scopedPkgName] = pkgDepObj
-  })
+      dependencies,
+    };
+    npmLockObject.packages[`node_modules/${scopedPkgName}@${version}`] = pkgDepObj;
+    npmLockObject.dependencies[scopedPkgName] = pkgDepObj;
+  });
 
-  return npmLockObject
+  return npmLockObject;
 }
 
 /**
@@ -223,8 +223,8 @@ export function createLock(pnpmLock: string): NpmLockObject {
  * @returns 代表 package-lock.json 的 JSON 字符串
  */
 export function convertPnpmToNpm(pnpmLockContent: string): string {
-  const npmLockObject = createLock(pnpmLockContent)
-  return JSON.stringify(npmLockObject, null, 2)
+  const npmLockObject = createLock(pnpmLockContent);
+  return JSON.stringify(npmLockObject, null, 2);
 }
 
 /**
@@ -234,7 +234,7 @@ export function convertPnpmToNpm(pnpmLockContent: string): string {
  * @returns 锁文件服务实例
  */
 export function parsePackageLock(content: string, baseUrl: string): LockfileService {
-  return new LockfileService(content, baseUrl)
+  return new LockfileService(content, baseUrl);
 }
 
 /**
@@ -244,9 +244,9 @@ export function parsePackageLock(content: string, baseUrl: string): LockfileServ
  * @returns 锁文件服务实例
  */
 export function parsePnpmLock(pnpmContent: string, baseUrl: string): LockfileService {
-  const npmContent = convertPnpmToNpm(pnpmContent)
-  return new LockfileService(npmContent, baseUrl)
+  const npmContent = convertPnpmToNpm(pnpmContent);
+  return new LockfileService(npmContent, baseUrl);
 }
 
 // 为了保持与原版本的兼容性，导出原始函数名
-export { convertPnpmToNpm as convert }
+export { convertPnpmToNpm as convert };

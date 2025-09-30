@@ -68,5 +68,5 @@ export interface PackageJson {
   devDependencies?: PackageDependency;
   peerDependencies?: PackageDependency;
   optionalDependencies?: PackageDependency;
-  [key: string]: any;
+  [key: string]: unknown;
 }

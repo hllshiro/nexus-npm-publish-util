@@ -157,7 +157,9 @@ export class App {
       logger.info('跳过远程仓库扫描');
     } else {
       logger.info('扫描远程仓库(nexus仓库为单线程模型，获取时间与仓库大小有关)');
-      servicePkgList = await getPkgListFromService(this.config.publishUrl!);
+      if (this.config.publishUrl) {
+        servicePkgList = await getPkgListFromService(this.config.publishUrl);
+      }
       logger.info(`扫描结束，共获取到${servicePkgList.length}个包`);
     }
 
@@ -167,20 +169,22 @@ export class App {
     if (list.length > 0) {
       logger.info(`找到${list.length}个待上传的包`);
       logger.info('开始发布');
-      const res = await publish(
-        list,
-        this.config.publishDir,
-        this.config.publishUrl!,
-        this.config.publishAuth!,
-        this.config.threadNumber
-      );
+      if (this.config.publishUrl && this.config.publishAuth) {
+        const res = await publish(
+          list,
+          this.config.publishDir,
+          this.config.publishUrl,
+          this.config.publishAuth,
+          this.config.threadNumber
+        );
 
-      // 回显结果
-      if (res.success > 0) {
-        logger.info(`成功(${res.success})`);
-      }
-      if (res.failed.length > 0) {
-        logger.error(`失败(${res.failed.length})`, res.failed.join('\n'));
+        // 回显结果
+        if (res.success > 0) {
+          logger.info(`成功(${res.success})`);
+        }
+        if (res.failed.length > 0) {
+          logger.error(`失败(${res.failed.length})`, res.failed.join('\n'));
+        }
       }
     } else {
       logger.error('未找到待发布的包或全部存在于远端仓库');

@@ -2,31 +2,11 @@
  * 文件操作和下载工具模块
  */
 
-import fs from 'fs';
-import crypto from 'crypto';
-import { ErrorCode } from '@/types/errors.js';
-
-/**
- * 自定义错误类
- */
-export class LpmError extends Error {
-  constructor(
-    message: string,
-    public code: ErrorCode,
-    public details?: unknown
-  ) {
-    super(message);
-    this.name = 'LpmError';
-  }
-}
-
-/**
- * 哈希计算选项
- */
-export interface HashOptions {
-  method?: string;
-  encoding?: 'base64' | 'hex' | 'binary';
-}
+import * as fs from 'fs';
+import * as crypto from 'crypto';
+import { ErrorCode, ErrorSeverity } from '@/types/errors.js';
+import type { HashOptions } from '@/types/file.js';
+import { LpmError } from './errors.js';
 
 /**
  * 下载文件（推荐方式）
@@ -39,16 +19,18 @@ export const downloadFile = async function (url: string, filePath: string): Prom
     const res = await fetch(url);
 
     if (!res.ok) {
-      throw new LpmError(`下载失败: ${res.statusText}`, ErrorCode.DOWNLOAD_FAILED, {
+      throw new LpmError(`下载失败: ${res.statusText}`, ErrorCode.DOWNLOAD_FAILED, ErrorSeverity.MEDIUM, {
         url,
-        filePath,
-        status: res.status,
-        statusText: res.statusText,
+        file: filePath,
+        details: {
+          status: res.status,
+          statusText: res.statusText,
+        },
       });
     }
 
     if (!res.body) {
-      throw new LpmError('响应体为空', ErrorCode.DOWNLOAD_FAILED, { url, filePath });
+      throw new LpmError('响应体为空', ErrorCode.DOWNLOAD_FAILED, ErrorSeverity.MEDIUM, { url, file: filePath });
     }
 
     // 在 Bun 中，使用 arrayBuffer() 获取数据然后写入文件
@@ -64,7 +46,9 @@ export const downloadFile = async function (url: string, filePath: string): Prom
     throw new LpmError(
       `下载文件失败: ${error instanceof Error ? error.message : String(error)}`,
       ErrorCode.DOWNLOAD_FAILED,
-      { url, filePath, originalError: error }
+      ErrorSeverity.MEDIUM,
+      { url, file: filePath },
+      error instanceof Error ? error : undefined
     );
   }
 };
@@ -85,7 +69,13 @@ export const calculateHash = async (filePath: string, options: HashOptions = {})
 
       rs.on('error', (error) => {
         reject(
-          new LpmError(`读取文件失败: ${error.message}`, ErrorCode.FILE_READ_ERROR, { filePath, originalError: error })
+          new LpmError(
+            `读取文件失败: ${error.message}`,
+            ErrorCode.FILE_READ_ERROR,
+            ErrorSeverity.MEDIUM,
+            { file: filePath },
+            error
+          )
         );
       });
 
@@ -102,7 +92,9 @@ export const calculateHash = async (filePath: string, options: HashOptions = {})
             new LpmError(
               `计算哈希值失败: ${error instanceof Error ? error.message : String(error)}`,
               ErrorCode.DOWNLOAD_INTEGRITY_ERROR,
-              { filePath, method, encoding, originalError: error }
+              ErrorSeverity.MEDIUM,
+              { file: filePath, details: { method, encoding } },
+              error instanceof Error ? error : undefined
             )
           );
         }
@@ -112,7 +104,9 @@ export const calculateHash = async (filePath: string, options: HashOptions = {})
         new LpmError(
           `创建哈希计算器失败: ${error instanceof Error ? error.message : String(error)}`,
           ErrorCode.DOWNLOAD_INTEGRITY_ERROR,
-          { filePath, method, encoding, originalError: error }
+          ErrorSeverity.MEDIUM,
+          { file: filePath, details: { method, encoding } },
+          error instanceof Error ? error : undefined
         )
       );
     }
@@ -145,7 +139,9 @@ export const ensureDir = async (dirPath: string): Promise<void> => {
     throw new LpmError(
       `创建目录失败: ${error instanceof Error ? error.message : String(error)}`,
       ErrorCode.DIRECTORY_CREATE_ERROR,
-      { dirPath, originalError: error }
+      ErrorSeverity.MEDIUM,
+      { details: { dirPath } },
+      error instanceof Error ? error : undefined
     );
   }
 };
@@ -163,7 +159,9 @@ export const getFileSize = async (filePath: string): Promise<number> => {
     throw new LpmError(
       `获取文件信息失败: ${error instanceof Error ? error.message : String(error)}`,
       ErrorCode.FILE_READ_ERROR,
-      { filePath, originalError: error }
+      ErrorSeverity.MEDIUM,
+      { file: filePath },
+      error instanceof Error ? error : undefined
     );
   }
 };
