@@ -6,6 +6,9 @@
 .qoder/
 node_modules/
 
+# Husky (keep .husky/ directory but ignore generated files)
+.husky/_
+
 # PROJECT
 download/
 .cache/

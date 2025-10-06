@@ -77,6 +77,8 @@ Options:
 - **语言**: TypeScript
 - **构建工具**: Bun build
 - **代码规范**: ESLint + Prettier
+- **提交规范**: Angular Commit Convention
+- **Git钩子**: Husky + lint-staged + commitlint
 
 ## 项目结构
 

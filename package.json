@@ -17,7 +17,30 @@
     "test:verbose": "bun test test/download.test.ts --verbose",
     "test:watch": "bun test test/download.test.ts --watch",
     "test:cleanup": "bun run test/cleanup.ts",
-    "verify": "bun run check && bun run build && bun run test"
+    "verify": "bun run check && bun run build && bun run test",
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "lint:staged": "lint-staged",
+    "test:commit-msg": "node scripts/test-commit-msg.js"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "bunx eslint --fix",
+      "bunx prettier --write"
+    ],
+    "*.{js,jsx}": [
+      "bunx eslint --fix", 
+      "bunx prettier --write"
+    ],
+    "*.json": [
+      "bunx prettier --write"
+    ],
+    "*.md": [
+      "bunx prettier --write"
+    ],
+    "*.{yml,yaml}": [
+      "bunx prettier --write"
+    ]
   },
   "dependencies": {
     "log4js": "^6.9.1",
@@ -27,6 +50,8 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.0.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^24.5.2",
     "@types/progress": "^2.0.7",
     "@types/readline-sync": "^1.4.8",
@@ -36,6 +61,8 @@
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.3",
     "prettier": "3.1.0",
     "typescript": "^5.9.2"
   }

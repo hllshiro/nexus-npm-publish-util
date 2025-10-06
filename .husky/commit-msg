@@ -1,0 +1,6 @@
+echo "🔍 Checking commit message format..."
+
+# 运行 commitlint
+bunx commitlint --edit $1
+
+echo "✅ Commit message format is valid!"
