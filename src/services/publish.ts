@@ -195,7 +195,7 @@ export const publish = async (
   limit: number
 ): Promise<OperationResult> => {
   // 记录发布配置信息（隐藏敏感信息）
-  fileLogger.info(`开始发布任务`, {
+  logger.info(`开始发布任务`, {
     packageCount: publishList.length,
     workingDirectory: cwd,
     publishUrl: url,
@@ -233,9 +233,7 @@ export const publish = async (
         // 使用辅助函数构建curl命令
         const curl = buildCurlCommand(auth, url, pkg);
 
-        fileLogger.info(`开始发布: ${pkg}`);
         await execCurl(curl, { cwd });
-        fileLogger.info(`发布成功: ${pkg}`);
         result.success++;
       } catch (err) {
         const error = err as Error;
@@ -261,10 +259,9 @@ export const publish = async (
   };
 
   logger.info(`发布完成: ${JSON.stringify(summary)}`);
-  fileLogger.info(`发布结果摘要`, summary);
 
   if (result.failed.length > 0) {
-    fileLogger.error(`失败的包列表:`, result.failed);
+    logger.error(`失败的包列表:`, result.failed);
   }
 
   return result;

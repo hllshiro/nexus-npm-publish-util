@@ -9,6 +9,7 @@ import type { LoggerConfig, LogEntry } from '../types/logger.js';
 export class Logger {
   private config: LoggerConfig;
   private static instance: Logger;
+  private static sharedLogFile: string | undefined;
 
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
@@ -20,7 +21,13 @@ export class Logger {
 
     // 如果启用文件日志且指定了日志文件路径，确保目录存在并生成时间戳文件名
     if (this.config.enableFile && this.config.logFile) {
-      this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
+      // 如果已经有共享的日志文件，使用它；否则生成新的
+      if (Logger.sharedLogFile) {
+        this.config.logFile = Logger.sharedLogFile;
+      } else {
+        this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
+        Logger.sharedLogFile = this.config.logFile;
+      }
       this.ensureLogDirectory();
       this.cleanupOldLogFiles();
     }
@@ -195,10 +202,18 @@ export class Logger {
    * 更新配置
    */
   public updateConfig(config: Partial<LoggerConfig>): void {
+    const oldLogFile = this.config.logFile;
     this.config = { ...this.config, ...config };
 
-    if (this.config.enableFile && this.config.logFile) {
-      this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
+    // 只有在日志文件路径发生变化时才重新生成时间戳文件名
+    if (this.config.enableFile && this.config.logFile && this.config.logFile !== oldLogFile) {
+      // 如果已经有共享的日志文件，使用它；否则生成新的
+      if (Logger.sharedLogFile) {
+        this.config.logFile = Logger.sharedLogFile;
+      } else {
+        this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
+        Logger.sharedLogFile = this.config.logFile;
+      }
       this.ensureLogDirectory();
       this.cleanupOldLogFiles();
     }
@@ -224,6 +239,7 @@ export const logger = Logger.getInstance({
 
 /**
  * 文件专用日志实例 - 仅输出到文件
+ * 使用相同的日志文件路径，确保两个实例写入同一个文件
  */
 export const fileLogger = new Logger({
   level: LogLevel.INFO,
