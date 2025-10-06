@@ -78,6 +78,28 @@ export const getPkgListFromService = async (publishURL: string): Promise<string[
 };
 
 /**
+ * 构建curl命令
+ * @param auth 认证信息
+ * @param url 上传URL
+ * @param filename 文件名
+ * @returns curl命令字符串
+ */
+const buildCurlCommand = (auth: string, url: string, filename: string): string => {
+  // 确保认证信息格式正确
+  if (!auth.includes(':')) {
+    throw new Error('认证信息格式错误，应为 username:password');
+  }
+
+  // 确保URL格式正确
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    throw new Error('URL格式错误，应以 http:// 或 https:// 开头');
+  }
+
+  // 构建curl命令，使用双引号包围参数以处理特殊字符
+  return `curl -u "${auth}" -X POST "${url}" -H "Accept: application/json" -H "Content-Type: multipart/form-data" -F "npm.asset=@${filename};type=application/x-compressed" --show-error --max-time 300 --connect-timeout 30`;
+};
+
+/**
  * 执行curl命令
  * @param curl curl命令
  * @param options 执行选项
@@ -86,15 +108,69 @@ export const getPkgListFromService = async (publishURL: string): Promise<string[
 const execCurl = async (curl: string, options: { cwd: string }): Promise<void> => {
   return new Promise((resolve, reject) => {
     exec(curl, options, (error, stdout, stderr) => {
+      // 记录详细的curl执行信息用于调试
+      const debugInfo = {
+        command: curl.replace(/-u\s+[^:]+:[^\s]+/, '-u [HIDDEN_AUTH]'), // 隐藏认证信息
+        stdout: stdout?.trim() || '',
+        stderr: stderr?.trim() || '',
+        exitCode: error?.code || 0,
+        cwd: options.cwd,
+      };
+
       if (error) {
-        reject(error);
+        // 详细的错误信息
+        let errorMsg = `Command failed: ${error.message}`;
+        if (error.code) {
+          errorMsg += ` (exit code: ${error.code})`;
+        }
+        if (stderr) {
+          errorMsg += `\nstderr: ${stderr}`;
+        }
+        if (stdout) {
+          errorMsg += `\nstdout: ${stdout}`;
+        }
+
+        fileLogger.error(`curl执行失败: ${JSON.stringify(debugInfo, null, 2)}`);
+        reject(new Error(errorMsg));
       } else {
         // 检查响应内容，确保不是HTML错误页面
         if (stdout && stdout.includes('<html>')) {
-          reject(new Error('服务器返回HTML页面，可能是错误的仓库地址'));
+          const errorMsg = '服务器返回HTML页面，可能是错误的仓库地址或认证失败';
+          fileLogger.error(`curl响应异常: ${JSON.stringify(debugInfo, null, 2)}`);
+          reject(new Error(errorMsg));
         } else if (stderr && stderr.trim()) {
-          reject(new Error(`curl错误: ${stderr}`));
+          // curl的进度信息通常输出到stderr，需要区分错误和进度信息
+          const stderrLower = stderr.toLowerCase();
+          if (
+            stderr.includes('% Total') ||
+            stderr.includes('Dload') ||
+            stderr.includes('Upload') ||
+            stderr.includes('Speed') ||
+            stderr.includes('Time') ||
+            stderrLower.includes('connecting to') ||
+            stderrLower.includes('connected to')
+          ) {
+            // 这是curl的进度信息或连接信息，不是错误
+            fileLogger.debug(`curl进度信息: ${stderr}`);
+            resolve();
+          } else if (
+            stderrLower.includes('error') ||
+            stderrLower.includes('failed') ||
+            stderrLower.includes('timeout') ||
+            stderrLower.includes('refused') ||
+            stderrLower.includes('not found')
+          ) {
+            // 明确的错误信息
+            const errorMsg = `curl错误: ${stderr}`;
+            fileLogger.error(`curl stderr错误: ${JSON.stringify(debugInfo, null, 2)}`);
+            reject(new Error(errorMsg));
+          } else {
+            // 其他stderr输出，记录但不作为错误
+            fileLogger.warn(`curl stderr输出: ${stderr}`);
+            resolve();
+          }
         } else {
+          fileLogger.debug(`curl执行成功: ${JSON.stringify(debugInfo, null, 2)}`);
           resolve();
         }
       }
@@ -118,6 +194,15 @@ export const publish = async (
   auth: string,
   limit: number
 ): Promise<OperationResult> => {
+  // 记录发布配置信息（隐藏敏感信息）
+  fileLogger.info(`开始发布任务`, {
+    packageCount: publishList.length,
+    workingDirectory: cwd,
+    publishUrl: url,
+    authFormat: auth.includes(':') ? 'username:password' : '格式错误',
+    concurrency: limit,
+  });
+
   const bar = new ProgressBar('[progress] [:bar] :percent :pkg', {
     total: publishList.length + 1,
     complete: '=',
@@ -134,12 +219,27 @@ export const publish = async (
     publishList,
     async (pkg: string) => {
       try {
-        const curl = `curl -u ${auth} -X POST "${url}" -H "Accept: application/json" -H "Content-Type:multipart/form-data" -F "npm.asset=@${pkg};type=application/x-compressed"`;
+        // 检查文件是否存在
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const fullPath = path.join(cwd, pkg);
+
+        try {
+          await fs.access(fullPath);
+        } catch {
+          throw new Error(`文件不存在: ${fullPath}`);
+        }
+
+        // 使用辅助函数构建curl命令
+        const curl = buildCurlCommand(auth, url, pkg);
+
+        fileLogger.info(`开始发布: ${pkg}`);
         await execCurl(curl, { cwd });
+        fileLogger.info(`发布成功: ${pkg}`);
         result.success++;
       } catch (err) {
         const error = err as Error;
-        const msg = `发布错误: ${pkg} - ${error.message}`;
+        const msg = `发布错误 ${pkg} - ${error.message}`;
         bar.interrupt(msg);
         fileLogger.error(msg);
         result.failed.push(msg);
@@ -151,7 +251,22 @@ export const publish = async (
   );
 
   bar.update(1, { pkg: '' });
-  logger.info('全部发布完成');
+
+  // 记录发布结果摘要
+  const summary = {
+    total: publishList.length,
+    success: result.success,
+    failed: result.failed.length,
+    successRate: `${((result.success / publishList.length) * 100).toFixed(2)}%`,
+  };
+
+  logger.info(`发布完成: ${JSON.stringify(summary)}`);
+  fileLogger.info(`发布结果摘要`, summary);
+
+  if (result.failed.length > 0) {
+    fileLogger.error(`失败的包列表:`, result.failed);
+  }
+
   return result;
 };
 
