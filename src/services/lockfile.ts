@@ -184,16 +184,34 @@ export function createLock(pnpmLock: string): NpmLockObject {
 
   Object.entries(pnpmLockObject.packages).forEach(([packageName, lockObj]) => {
     let pkgName = packageName.startsWith('/') ? packageName.substring(1) : packageName;
-    let version = pkgName.substring(pkgName.lastIndexOf('@') + 1);
-    pkgName = pkgName.substring(0, pkgName.lastIndexOf('@'));
-    let scopedPkgName = pkgName;
 
-    if (pkgName.startsWith('@')) {
-      scopedPkgName = pkgName;
-      pkgName = pkgName.substring(pkgName.indexOf('/') + 1);
+    // 处理带有 peer dependencies 的包名，如 @babel/plugin-syntax-import-attributes@7.24.1(@babel/core@7.25.2)
+    // 先移除括号部分（peer dependencies）
+    const peerDepMatch = pkgName.match(/^(.+?)(\(.+\))?$/);
+    if (peerDepMatch && peerDepMatch[1]) {
+      pkgName = peerDepMatch[1]; // 只保留主包名部分
     }
 
-    const resolved = `https://registry.npmjs.org/${scopedPkgName}/-/${pkgName}-${version}.tgz`;
+    // 解析版本号：找到最后一个 @ 符号
+    const lastAtIndex = pkgName.lastIndexOf('@');
+    if (lastAtIndex === -1) {
+      return; // 跳过无效的包名
+    }
+
+    let version = pkgName.substring(lastAtIndex + 1);
+    let actualPkgName = pkgName.substring(0, lastAtIndex);
+    let scopedPkgName = actualPkgName;
+
+    // 处理 scoped packages (以 @ 开头的包)
+    if (actualPkgName.startsWith('@')) {
+      scopedPkgName = actualPkgName;
+      const slashIndex = actualPkgName.indexOf('/');
+      if (slashIndex !== -1) {
+        actualPkgName = actualPkgName.substring(slashIndex + 1);
+      }
+    }
+
+    const resolved = `https://registry.npmjs.org/${scopedPkgName}/-/${actualPkgName}-${version}.tgz`;
 
     const dev = lockObj.dev || false;
     const integrity = lockObj.resolution?.integrity || '';
@@ -211,7 +229,7 @@ export function createLock(pnpmLock: string): NpmLockObject {
       requires,
       dependencies,
     };
-    npmLockObject.packages[`node_modules/${scopedPkgName}@${version}`] = pkgDepObj;
+    npmLockObject.packages[`node_modules/${scopedPkgName}`] = pkgDepObj;
     npmLockObject.dependencies[scopedPkgName] = pkgDepObj;
   });
 

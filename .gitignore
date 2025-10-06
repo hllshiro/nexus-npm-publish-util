@@ -22,6 +22,7 @@ dist/
 *.mhtml
 
 # LCOK
+bun.lock
 bun.lockb
 package-lock.json
 pnpm-lock.yaml
