@@ -2,6 +2,12 @@
 
 基于TypeScript和Bun构建的npm包迁移工具，支持包下载、发布和锁文件解析。
 
+> ！！！已停止维护！！！由于需要适配npm/yarn/pnpm等众多工具，尤其是pnpm难度较大，停用此方案。
+> 替代方案：
+> - 在线环境部署`Verdaccio`
+> - 设置registry指向本地服务，然后使用任何包管理工具安装依赖
+> - 拷贝`Verdaccio`的storage目录到离线环境，通过`Verdaccio`重新发布
+
 ## 安装和构建
 
 ```bash
