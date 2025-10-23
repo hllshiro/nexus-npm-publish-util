@@ -7,6 +7,10 @@ export enum ErrorType {
   FILE_ERROR = 'FILE_ERROR',
   PARSE_ERROR = 'PARSE_ERROR',
   TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+  REGISTRY_ERROR = 'REGISTRY_ERROR',
+  PACKAGE_NOT_FOUND = 'PACKAGE_NOT_FOUND',
+  UPLOAD_ERROR = 'UPLOAD_ERROR',
+  MULTIPART_ERROR = 'MULTIPART_ERROR',
 }
 
 /**
@@ -56,4 +60,31 @@ export interface RetryableOperation {
    * @returns 操作结果
    */
   executeWithRetry<T>(operation: () => Promise<T>, maxRetries?: number, delay?: number): Promise<T>;
+}
+
+/**
+ * 包检查错误接口
+ */
+export interface PackageCheckError extends PublishError {
+  type: ErrorType.REGISTRY_ERROR | ErrorType.PACKAGE_NOT_FOUND | ErrorType.NETWORK_ERROR | ErrorType.TIMEOUT_ERROR;
+  registryUrl?: string;
+  packageName: string;
+  version?: string;
+}
+
+/**
+ * 包上传错误接口
+ */
+export interface PackageUploadError extends PublishError {
+  type:
+    | ErrorType.UPLOAD_ERROR
+    | ErrorType.MULTIPART_ERROR
+    | ErrorType.AUTH_ERROR
+    | ErrorType.NETWORK_ERROR
+    | ErrorType.TIMEOUT_ERROR;
+  uploadUrl?: string;
+  packageName: string;
+  filePath?: string;
+  statusCode?: number;
+  responseBody?: string;
 }
