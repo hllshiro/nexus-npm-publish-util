@@ -37,8 +37,10 @@
     ]
   },
   "dependencies": {
+    "fast-glob": "^3.3.3",
     "log4js": "^6.9.1",
     "progress": "^2.0.3",
+    "tar": "^7.5.1",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
@@ -46,6 +48,7 @@
     "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^24.5.2",
     "@types/progress": "^2.0.7",
+    "@types/tar": "^6.1.13",
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

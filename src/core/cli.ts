@@ -31,12 +31,7 @@ export function parseCliArgs(): CliArgs {
       type: 'string',
       required: true,
     })
-    .option('force', {
-      alias: 'f',
-      description: 'Force publish all packages',
-      type: 'boolean',
-      default: false,
-    })
+
     .option('threads', {
       alias: 't',
       description: 'Concurrent threads',
@@ -47,11 +42,10 @@ export function parseCliArgs(): CliArgs {
     .help()
     .parseSync();
 
-  // 构建CLI参数对象
+  // 构建CLI参数对象 - 移除forcePublish，因为新设计中每个包都会单独检查
   const result: CliArgs = {
     publishDir: argv.dir,
     threadNumber: argv.threads,
-    forcePublish: argv.force,
     publishUrl: argv.url,
     publishAuth: argv.auth,
   };

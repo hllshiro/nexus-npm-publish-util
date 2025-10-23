@@ -21,21 +21,19 @@ export class App {
 
   /**
    * 发布模式
+   * 注意：此方法将在后续任务中重构为使用新的优化组件
+   * 当前临时移除forcePublish逻辑以修复类型错误
    */
   public async publishMode(): Promise<void> {
     logger.info('开始发布');
 
-    // 获取服务端缓存
+    // 临时保留旧的全量扫描逻辑，将在后续任务中替换为单包检查
+    logger.info('扫描远程仓库(nexus仓库为单线程模型，获取时间与仓库大小有关)');
     let servicePkgList: string[] = [];
-    if (this.config.forcePublish) {
-      logger.info('跳过远程仓库扫描');
-    } else {
-      logger.info('扫描远程仓库(nexus仓库为单线程模型，获取时间与仓库大小有关)');
-      if (this.config.publishUrl) {
-        servicePkgList = await getPkgListFromService(this.config.publishUrl);
-      }
-      logger.info(`扫描结束，共获取到${servicePkgList.length}个包`);
+    if (this.config.publishUrl) {
+      servicePkgList = await getPkgListFromService(this.config.publishUrl);
     }
+    logger.info(`扫描结束，共获取到${servicePkgList.length}个包`);
 
     logger.info('扫描待发布目录');
     const list = fs.readdirSync(this.config.publishDir).filter((item) => servicePkgList.indexOf(item) === -1);
