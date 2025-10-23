@@ -1,0 +1,206 @@
+import type { PackageChecker, PackageRegistryResponse } from '../types/package.js';
+import type { PackageCheckError } from '../types/error.js';
+import { ErrorType } from '../types/error.js';
+
+/**
+ * 包检查配置接口
+ */
+export interface PackageCheckerConfig {
+  /** 连接超时时间（毫秒），默认10秒 */
+  connectTimeout?: number;
+  /** 请求超时时间（毫秒），默认30秒 */
+  requestTimeout?: number;
+  /** 重试次数，默认3次 */
+  retryCount?: number;
+  /** 重试延迟（毫秒），默认1秒 */
+  retryDelay?: number;
+}
+
+/**
+ * 基于npm registry的包检查器实现
+ * 使用fetch API查询npm registry来检查包是否存在
+ */
+export class RegistryPackageChecker implements PackageChecker {
+  private readonly config: Required<PackageCheckerConfig>;
+
+  constructor(config: PackageCheckerConfig = {}) {
+    this.config = {
+      connectTimeout: config.connectTimeout ?? 10000,
+      requestTimeout: config.requestTimeout ?? 30000,
+      retryCount: config.retryCount ?? 3,
+      retryDelay: config.retryDelay ?? 1000,
+    };
+  }
+
+  /**
+   * 检查包是否存在于远程仓库
+   * @param packageName 包名
+   * @param version 版本号
+   * @param registryUrl 仓库URL
+   * @returns 是否存在
+   */
+  async checkPackageExists(packageName: string, version: string, registryUrl: string): Promise<boolean> {
+    try {
+      const encodedName = encodeURIComponent(packageName);
+      const checkUrl = `${registryUrl.replace(/\/$/, '')}/${encodedName}`;
+
+      const response = await this.fetchWithTimeout(checkUrl);
+
+      // 404表示包不存在
+      if (response.status === 404) {
+        return false;
+      }
+
+      // 检查其他HTTP错误
+      if (!response.ok) {
+        throw this.createPackageCheckError(
+          ErrorType.REGISTRY_ERROR,
+          `HTTP ${response.status}: ${response.statusText}`,
+          packageName,
+          version,
+          registryUrl,
+          {
+            statusCode: response.status,
+            statusText: response.statusText,
+          }
+        );
+      }
+
+      // 解析响应数据
+      const packageData: PackageRegistryResponse = await response.json();
+
+      // 检查指定版本是否存在
+      return version in packageData.versions;
+    } catch (error) {
+      if (error instanceof Error) {
+        // 处理超时错误
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+          throw this.createPackageCheckError(
+            ErrorType.TIMEOUT_ERROR,
+            `请求超时: ${error.message}`,
+            packageName,
+            version,
+            registryUrl,
+            { originalError: error }
+          );
+        }
+
+        // 处理网络错误
+        if (error.message.includes('fetch') || error.message.includes('network')) {
+          throw this.createPackageCheckError(
+            ErrorType.NETWORK_ERROR,
+            `网络错误: ${error.message}`,
+            packageName,
+            version,
+            registryUrl,
+            { originalError: error }
+          );
+        }
+
+        // 处理JSON解析错误
+        if (error.message.includes('JSON') || error.message.includes('parse')) {
+          throw this.createPackageCheckError(
+            ErrorType.REGISTRY_ERROR,
+            `响应解析错误: ${error.message}`,
+            packageName,
+            version,
+            registryUrl,
+            { originalError: error }
+          );
+        }
+      }
+
+      // 如果是已知的PackageCheckError，直接抛出
+      if (this.isPackageCheckError(error)) {
+        throw error;
+      }
+
+      // 其他未知错误
+      throw this.createPackageCheckError(
+        ErrorType.REGISTRY_ERROR,
+        `未知错误: ${error instanceof Error ? error.message : String(error)}`,
+        packageName,
+        version,
+        registryUrl,
+        { originalError: error }
+      );
+    }
+  }
+
+  /**
+   * 使用超时控制的fetch请求
+   * @param url 请求URL
+   * @returns Response对象
+   */
+  private async fetchWithTimeout(url: string): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.config.requestTimeout);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'publish-util/1.0.0',
+        },
+        signal: controller.signal,
+      });
+
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * 创建包检查错误对象
+   */
+  private createPackageCheckError(
+    type: ErrorType,
+    message: string,
+    packageName: string,
+    version?: string,
+    registryUrl?: string,
+    details?: unknown
+  ): PackageCheckError {
+    return {
+      type,
+      message,
+      packageName,
+      version,
+      registryUrl,
+      details,
+      retryable: this.isRetryableError(type),
+    };
+  }
+
+  /**
+   * 判断错误是否可重试
+   */
+  private isRetryableError(errorType: ErrorType): boolean {
+    switch (errorType) {
+      case ErrorType.NETWORK_ERROR:
+      case ErrorType.TIMEOUT_ERROR:
+      case ErrorType.REGISTRY_ERROR:
+        return true;
+      case ErrorType.PACKAGE_NOT_FOUND:
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * 类型守卫：检查是否为PackageCheckError
+   */
+  private isPackageCheckError(error: unknown): error is PackageCheckError {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'type' in error &&
+      'message' in error &&
+      'packageName' in error &&
+      'retryable' in error
+    );
+  }
+}

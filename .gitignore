@@ -15,6 +15,7 @@ download/
 .tmp/
 .test/
 dist/
+__tests__/
 
 # TMP
 *.tgz
