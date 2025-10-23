@@ -1,23 +1,17 @@
 {
-  "name": "lpm",
-  "version": "2.0.0-beta.2",
-  "description": "npm包缓存和发布工具",
+  "name": "publish-util",
+  "version": "1.0.0",
+  "description": "npm包发布工具",
   "type": "module",
-  "bin": "./dist/lpm.exe",
+  "bin": "./dist/pu.exe",
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun run check && bun build --compile --minify --sourcemap --outfile dist/lpm.exe --target bun src/index.ts",
+    "build": "bun run check && bun build --compile --minify --sourcemap --bytecode --outfile dist/pu.exe --target bun src/index.ts",
     "format": "bunx prettier --write .",
     "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck",
-    "test": "bun run test/run-tests.ts",
-    "test:direct": "bun test test/download.test.ts",
-    "test:verbose": "bun test test/download.test.ts --verbose",
-    "test:watch": "bun test test/download.test.ts --watch",
-    "test:cleanup": "bun run test/cleanup.ts",
-    "verify": "bun run check && bun run build && bun run test",
     "prepare": "husky",
     "commitlint": "commitlint --edit",
     "lint:staged": "lint-staged",
@@ -29,7 +23,7 @@
       "bunx prettier --write"
     ],
     "*.{js,jsx}": [
-      "bunx eslint --fix", 
+      "bunx eslint --fix",
       "bunx prettier --write"
     ],
     "*.json": [
@@ -45,8 +39,6 @@
   "dependencies": {
     "log4js": "^6.9.1",
     "progress": "^2.0.3",
-    "readline-sync": "^1.4.10",
-    "yaml": "^2.8.1",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
@@ -54,7 +46,6 @@
     "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^24.5.2",
     "@types/progress": "^2.0.7",
-    "@types/readline-sync": "^1.4.8",
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

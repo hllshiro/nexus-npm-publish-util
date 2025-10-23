@@ -7,9 +7,10 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { exec } from 'node:child_process';
 import ProgressBar from 'progress';
-import { fileLogger, logger } from '../utils/logger.js';
-import { asyncFn } from '../utils/task.js';
-import type { PublishConfig, OperationResult, ServicePackageItem, ServicePackageListResponse } from '../types/index.js';
+import type { ServicePackageItem, ServicePackageListResponse } from '@/types/package.js';
+import type { OperationResult, PublishConfig } from '@/types/config.js';
+import { fileLogger, logger } from '@/utils/logger';
+import { asyncFn } from '@/utils/task';
 
 /**
  * 递归请求获取包列表
