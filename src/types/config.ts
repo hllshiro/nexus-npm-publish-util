@@ -20,6 +20,8 @@ export interface OptimizedPublishConfig extends PublishConfig {
   connectTimeout?: number;
   /** 是否跳过包存在性检查，直接上传 */
   skipExistenceCheck?: boolean;
+  /** 是否启用详细日志记录 */
+  enableDetailedLogging?: boolean;
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
- * 发布服务 - 迁移自 util/publish.js
- * 提供包发布到 Nexus 仓库的功能
+ * 发布服务 - 优化版本
+ * 提供包发布到 Nexus 仓库的功能，使用新的PackageManager进行优化
  */
 
 import * as http from 'node:http';
@@ -8,9 +8,11 @@ import * as https from 'node:https';
 import { exec } from 'node:child_process';
 import ProgressBar from 'progress';
 import type { ServicePackageItem, ServicePackageListResponse } from '@/types/package.js';
-import type { OperationResult, PublishConfig } from '@/types/config.js';
+import type { OperationResult, PublishConfig, OptimizedPublishConfig } from '@/types/config.js';
 import { fileLogger, logger } from '@/utils/logger';
 import { asyncFn } from '@/utils/task';
+import { DefaultPackageManager, type PackageManagerConfig } from './package-manager.js';
+import { enhancedLogger } from '@/utils/enhanced-logger.js';
 
 /**
  * 递归请求获取包列表
@@ -236,7 +238,7 @@ export const publish = async (
 
         await execCurl(curl, { cwd });
         result.success++;
-      } catch (err) {
+      } catch (err: unknown) {
         const error = err as Error;
         const msg = `发布错误 ${pkg} - ${error.message}`;
         bar.interrupt(msg);
@@ -269,30 +271,190 @@ export const publish = async (
 };
 
 /**
- * 发布服务类
+ * 发布服务类 - 优化版本
  */
 export class PublishService {
+  private packageManager: DefaultPackageManager | null = null;
+
   /**
-   * 获取远程仓库的包列表
+   * 获取远程仓库的包列表（保留兼容性，但标记为废弃）
+   * @deprecated 建议使用新的包管理器进行单包检查，避免全量扫描
    * @param publishURL 发布服务URL
    * @returns 包名列表
    */
   async getPackageList(publishURL: string): Promise<string[]> {
+    enhancedLogger.warn('使用了废弃的getPackageList方法，建议迁移到新的包管理器');
     return getPkgListFromService(publishURL);
   }
 
   /**
-   * 发布包到远程仓库
+   * 发布包到远程仓库（兼容旧接口）
+   * @deprecated 建议使用publishPackagesOptimized方法获得更好的性能
    * @param packages 要发布的包列表
    * @param config 发布配置
    * @returns 发布结果
    */
   async publishPackages(packages: string[], config: PublishConfig): Promise<OperationResult> {
+    enhancedLogger.warn('使用了兼容模式的publishPackages方法，建议使用publishPackagesOptimized');
     return publish(packages, config.publishDir, config.publishUrl, config.publishAuth, config.threadNumber);
   }
+
+  /**
+   * 使用优化的包管理器发布包（推荐方法）
+   * @param config 优化的发布配置
+   * @returns 发布结果
+   */
+  async publishPackagesOptimized(config: OptimizedPublishConfig): Promise<OperationResult> {
+    try {
+      // 创建包管理器配置
+      const managerConfig: PackageManagerConfig = {
+        publishDir: config.publishDir,
+        publishUrl: config.publishUrl,
+        publishAuth: config.publishAuth,
+        threadNumber: config.threadNumber,
+        enableDetailedLogging: config.enableDetailedLogging ?? false,
+        maxConcurrency: config.threadNumber,
+        ...(config.scanPattern && { scanPattern: config.scanPattern }),
+        ...(config.requestTimeout && { requestTimeout: config.requestTimeout }),
+        ...(config.connectTimeout && { connectTimeout: config.connectTimeout }),
+        ...(config.skipExistenceCheck !== undefined && { skipExistenceCheck: config.skipExistenceCheck }),
+      };
+
+      // 创建或重用包管理器实例
+      if (!this.packageManager) {
+        this.packageManager = new DefaultPackageManager(managerConfig);
+      }
+
+      // 执行优化的发布流程
+      return await this.packageManager.publishPackages(config);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      enhancedLogger.error('优化发布流程执行失败', { error: errorMessage });
+
+      return {
+        success: 0,
+        failed: [`优化发布流程执行失败: ${errorMessage}`],
+      };
+    }
+  }
+
+  /**
+   * 自动选择发布方法（智能模式）
+   * 根据配置自动选择使用优化版本还是兼容版本
+   * @param config 发布配置
+   * @param packages 包列表（可选，如果提供则使用兼容模式）
+   * @returns 发布结果
+   */
+  async publishPackagesAuto(config: OptimizedPublishConfig, packages?: string[]): Promise<OperationResult> {
+    if (packages && packages.length > 0) {
+      // 如果提供了包列表，使用兼容模式
+      enhancedLogger.info('检测到包列表参数，使用兼容模式发布');
+      return this.publishPackages(packages, config);
+    } else {
+      // 否则使用优化模式
+      enhancedLogger.info('使用优化模式发布');
+      return this.publishPackagesOptimized(config);
+    }
+  }
+
+  /**
+   * 获取包管理器实例（用于高级操作）
+   * @param config 配置
+   * @returns 包管理器实例
+   */
+  getPackageManager(config: PackageManagerConfig): DefaultPackageManager {
+    if (!this.packageManager) {
+      this.packageManager = new DefaultPackageManager(config);
+    }
+    return this.packageManager;
+  }
+
+  /**
+   * 重置包管理器实例
+   */
+  resetPackageManager(): void {
+    this.packageManager = null;
+  }
+}
+
+/**
+ * 创建优化的发布服务实例
+ * @param config 配置选项
+ * @returns 发布服务实例
+ */
+export function createPublishService(config?: Partial<OptimizedPublishConfig>): PublishService {
+  const service = new PublishService();
+
+  if (config) {
+    // 预初始化包管理器
+    const managerConfig: PackageManagerConfig = {
+      publishDir: config.publishDir || '',
+      publishUrl: config.publishUrl || '',
+      publishAuth: config.publishAuth || '',
+      threadNumber: config.threadNumber || 3,
+      enableDetailedLogging: config.enableDetailedLogging ?? false,
+      maxConcurrency: config.threadNumber || 3,
+      ...(config.scanPattern && { scanPattern: config.scanPattern }),
+      ...(config.requestTimeout && { requestTimeout: config.requestTimeout }),
+      ...(config.connectTimeout && { connectTimeout: config.connectTimeout }),
+      ...(config.skipExistenceCheck !== undefined && { skipExistenceCheck: config.skipExistenceCheck }),
+    };
+
+    service.getPackageManager(managerConfig);
+  }
+
+  return service;
+}
+
+/**
+ * 便捷函数：直接使用优化模式发布包
+ * @param config 发布配置
+ * @returns 发布结果
+ */
+export async function publishPackagesOptimized(config: OptimizedPublishConfig): Promise<OperationResult> {
+  const service = createPublishService();
+  return service.publishPackagesOptimized(config);
+}
+
+/**
+ * 便捷函数：自动选择发布模式
+ * @param config 发布配置
+ * @param packages 包列表（可选）
+ * @returns 发布结果
+ */
+export async function publishPackagesAuto(
+  config: OptimizedPublishConfig,
+  packages?: string[]
+): Promise<OperationResult> {
+  const service = createPublishService();
+  return service.publishPackagesAuto(config, packages);
 }
 
 /**
  * 默认发布服务实例
  */
 export const publishService = new PublishService();
+
+/**
+ * 迁移指南注释
+ *
+ * 从旧版本迁移到新版本的建议：
+ *
+ * 1. 旧方式（不推荐）：
+ *    const result = await publishService.publishPackages(packages, config);
+ *
+ * 2. 新方式（推荐）：
+ *    const result = await publishService.publishPackagesOptimized(config);
+ *    或
+ *    const result = await publishPackagesOptimized(config);
+ *
+ * 3. 自动选择方式：
+ *    const result = await publishService.publishPackagesAuto(config);
+ *
+ * 新方式的优势：
+ * - 自动扫描.tgz文件，无需手动提供包列表
+ * - 单包存在性检查，避免全量仓库扫描
+ * - 更好的并发控制和错误处理
+ * - 详细的进度跟踪和日志记录
+ * - 使用fetch API替代curl，更稳定的网络请求
+ */
