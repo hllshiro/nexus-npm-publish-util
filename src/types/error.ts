@@ -21,7 +21,6 @@ export interface PublishError {
   message: string;
   details?: unknown;
   packageName?: string;
-  retryable: boolean;
 }
 
 /**
@@ -49,24 +48,15 @@ export interface ProgressReport {
 }
 
 /**
- * 可重试操作接口
- */
-export interface RetryableOperation {
-  /**
-   * 执行带重试的操作
-   * @param operation 要执行的操作
-   * @param maxRetries 最大重试次数
-   * @param delay 重试延迟（毫秒）
-   * @returns 操作结果
-   */
-  executeWithRetry<T>(operation: () => Promise<T>, maxRetries?: number, delay?: number): Promise<T>;
-}
-
-/**
  * 包检查错误接口
  */
 export interface PackageCheckError extends PublishError {
-  type: ErrorType.REGISTRY_ERROR | ErrorType.PACKAGE_NOT_FOUND | ErrorType.NETWORK_ERROR | ErrorType.TIMEOUT_ERROR;
+  type:
+    | ErrorType.REGISTRY_ERROR
+    | ErrorType.PACKAGE_NOT_FOUND
+    | ErrorType.NETWORK_ERROR
+    | ErrorType.TIMEOUT_ERROR
+    | ErrorType.PARSE_ERROR;
   registryUrl?: string;
   packageName: string;
   version?: string;
@@ -81,7 +71,8 @@ export interface PackageUploadError extends PublishError {
     | ErrorType.MULTIPART_ERROR
     | ErrorType.AUTH_ERROR
     | ErrorType.NETWORK_ERROR
-    | ErrorType.TIMEOUT_ERROR;
+    | ErrorType.TIMEOUT_ERROR
+    | ErrorType.FILE_ERROR;
   uploadUrl?: string;
   packageName: string;
   filePath?: string;

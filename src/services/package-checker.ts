@@ -10,10 +10,6 @@ export interface PackageCheckerConfig {
   connectTimeout?: number;
   /** 请求超时时间（毫秒），默认30秒 */
   requestTimeout?: number;
-  /** 重试次数，默认3次 */
-  retryCount?: number;
-  /** 重试延迟（毫秒），默认1秒 */
-  retryDelay?: number;
 }
 
 /**
@@ -27,8 +23,6 @@ export class RegistryPackageChecker implements PackageChecker {
     this.config = {
       connectTimeout: config.connectTimeout ?? 10000,
       requestTimeout: config.requestTimeout ?? 30000,
-      retryCount: config.retryCount ?? 3,
-      retryDelay: config.retryDelay ?? 1000,
     };
   }
 
@@ -67,7 +61,7 @@ export class RegistryPackageChecker implements PackageChecker {
       }
 
       // 解析响应数据
-      const packageData: PackageRegistryResponse = await response.json();
+      const packageData = (await response.json()) as PackageRegistryResponse;
 
       // 检查指定版本是否存在
       return version in packageData.versions;
@@ -156,38 +150,24 @@ export class RegistryPackageChecker implements PackageChecker {
    * 创建包检查错误对象
    */
   private createPackageCheckError(
-    type: ErrorType,
+    type: PackageCheckError['type'],
     message: string,
     packageName: string,
     version?: string,
     registryUrl?: string,
     details?: unknown
   ): PackageCheckError {
-    return {
+    const error: PackageCheckError = {
       type,
       message,
       packageName,
-      version,
-      registryUrl,
       details,
-      retryable: this.isRetryableError(type),
     };
-  }
 
-  /**
-   * 判断错误是否可重试
-   */
-  private isRetryableError(errorType: ErrorType): boolean {
-    switch (errorType) {
-      case ErrorType.NETWORK_ERROR:
-      case ErrorType.TIMEOUT_ERROR:
-      case ErrorType.REGISTRY_ERROR:
-        return true;
-      case ErrorType.PACKAGE_NOT_FOUND:
-        return false;
-      default:
-        return false;
-    }
+    if (version !== undefined) error.version = version;
+    if (registryUrl !== undefined) error.registryUrl = registryUrl;
+
+    return error;
   }
 
   /**
@@ -195,12 +175,7 @@ export class RegistryPackageChecker implements PackageChecker {
    */
   private isPackageCheckError(error: unknown): error is PackageCheckError {
     return (
-      typeof error === 'object' &&
-      error !== null &&
-      'type' in error &&
-      'message' in error &&
-      'packageName' in error &&
-      'retryable' in error
+      typeof error === 'object' && error !== null && 'type' in error && 'message' in error && 'packageName' in error
     );
   }
 }

@@ -18,10 +18,6 @@ export interface OptimizedPublishConfig extends PublishConfig {
   requestTimeout?: number;
   /** 连接超时时间（毫秒） */
   connectTimeout?: number;
-  /** 重试次数 */
-  retryCount?: number;
-  /** 重试延迟（毫秒） */
-  retryDelay?: number;
   /** 是否跳过包存在性检查，直接上传 */
   skipExistenceCheck?: boolean;
 }

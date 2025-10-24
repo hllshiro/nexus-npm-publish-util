@@ -1,2 +1,2 @@
 Set shell = CreateObject("WScript.Shell")
-shell.Run "pu.exe --url=http://nexus.senjone.com/service/rest/v1/components?repository=npm-hosted --auth=xqkj:xqkj --dir=./download --force", 1, True
+shell.Run "pu.exe --url=http://localhost:8081/service/rest/v1/components?repository=npm --auth=admin:123456 --dir=D:/.Verdaccio --force", 1, True

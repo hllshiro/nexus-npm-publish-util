@@ -25,14 +25,7 @@ export type {
 // 错误处理相关类型
 export { ErrorType } from './error.js';
 
-export type {
-  PublishError,
-  PackageCheckError,
-  PackageUploadError,
-  ProgressTracker,
-  ProgressReport,
-  RetryableOperation,
-} from './error.js';
+export type { PublishError, PackageCheckError, PackageUploadError, ProgressTracker, ProgressReport } from './error.js';
 
 // 日志相关类型
 export type { LogLevel, LoggerConfig } from './logger.js';

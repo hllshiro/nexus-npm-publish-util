@@ -1,12 +1,10 @@
 import type { PackageChecker } from '../types/package.js';
-import type { RetryableOperation } from '../types/error.js';
 import { RegistryPackageChecker, type PackageCheckerConfig } from './package-checker.js';
-import { RetryableOperationImpl, type RetryConfig } from './retry-operation.js';
 
 /**
  * 并发检查配置接口
  */
-export interface ConcurrentCheckerConfig extends PackageCheckerConfig, RetryConfig {
+export interface ConcurrentCheckerConfig extends PackageCheckerConfig {
   /** 最大并发数，默认5 */
   maxConcurrency?: number;
 }
@@ -31,16 +29,14 @@ export interface PackageCheckResult {
 }
 
 /**
- * 支持并发控制和重试机制的包检查器
+ * 支持并发控制的包检查器
  */
 export class ConcurrentPackageChecker {
   private readonly checker: PackageChecker;
-  private readonly retryOperation: RetryableOperation;
   private readonly maxConcurrency: number;
 
   constructor(config: ConcurrentCheckerConfig = {}) {
     this.checker = new RegistryPackageChecker(config);
-    this.retryOperation = new RetryableOperationImpl(config);
     this.maxConcurrency = config.maxConcurrency ?? 5;
   }
 
@@ -63,10 +59,8 @@ export class ConcurrentPackageChecker {
       await semaphore.acquire();
 
       try {
-        // 执行带重试的包检查
-        const exists = await this.retryOperation.executeWithRetry(() =>
-          this.checker.checkPackageExists(task.packageName, task.version, task.registryUrl)
-        );
+        // 执行包检查
+        const exists = await this.checker.checkPackageExists(task.packageName, task.version, task.registryUrl);
 
         return {
           packageName: task.packageName,
@@ -91,16 +85,14 @@ export class ConcurrentPackageChecker {
   }
 
   /**
-   * 检查单个包的存在性（带重试）
+   * 检查单个包的存在性
    * @param packageName 包名
    * @param version 版本号
    * @param registryUrl 仓库URL
    * @returns 是否存在
    */
-  async checkPackageWithRetry(packageName: string, version: string, registryUrl: string): Promise<boolean> {
-    return await this.retryOperation.executeWithRetry(() =>
-      this.checker.checkPackageExists(packageName, version, registryUrl)
-    );
+  async checkPackage(packageName: string, version: string, registryUrl: string): Promise<boolean> {
+    return await this.checker.checkPackageExists(packageName, version, registryUrl);
   }
 
   /**
@@ -130,10 +122,8 @@ export class ConcurrentPackageChecker {
         // 通知开始检查当前包
         onProgress?.(completed, tasks.length, task.packageName);
 
-        // 执行带重试的包检查
-        const exists = await this.retryOperation.executeWithRetry(() =>
-          this.checker.checkPackageExists(task.packageName, task.version, task.registryUrl)
-        );
+        // 执行包检查
+        const exists = await this.checker.checkPackageExists(task.packageName, task.version, task.registryUrl);
 
         const result: PackageCheckResult = {
           packageName: task.packageName,
