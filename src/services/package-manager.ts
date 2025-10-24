@@ -123,6 +123,13 @@ export class DefaultPackageManager implements PackageManager {
       // 初始化进度跟踪器
       this.progressTracker.initialize(packageInfoList);
 
+      // 更新所有包的扫描完成状态
+      for (const packageInfo of packageInfoList) {
+        this.progressTracker.updateProgress(packageInfo.packageName, 'scanning', {
+          statusDetail: '包信息提取完成',
+        });
+      }
+
       // 阶段2: 检查包存在性（如果未跳过）
       const checkStartTime = Date.now();
       const publishTasks = await this.checkPackageExistence(packageInfoList, this.config);
@@ -180,10 +187,6 @@ export class DefaultPackageManager implements PackageManager {
       await asyncFn(
         tgzFiles,
         async (filePath: string) => {
-          this.progressTracker.updateProgress(this.extractPackageNameFromPath(filePath), 'scanning', {
-            statusDetail: '正在提取包信息',
-          });
-
           const packageInfo = await this.extractor.extractPackageInfo(filePath);
           if (packageInfo) {
             packageInfoList.push(packageInfo);
@@ -434,14 +437,6 @@ export class DefaultPackageManager implements PackageManager {
     // 输出进度跟踪器的详细报告
     const finalReport = this.progressTracker.generateFinalReport();
     logger.info('\n' + finalReport);
-  }
-
-  /**
-   * 从文件路径提取包名（用于进度跟踪）
-   */
-  private extractPackageNameFromPath(filePath: string): string {
-    const fileName = filePath.split(/[/\\]/).pop() || filePath;
-    return fileName.replace(/\.tgz$/, '');
   }
 
   /**

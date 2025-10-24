@@ -57,80 +57,143 @@ export class TarPackageInfoExtractor implements PackageInfoExtractor {
   }
 
   /**
+   * 获取tar文件中所有package.json文件的路径
+   * @param tgzFilePath .tgz文件路径
+   * @returns package.json文件路径列表
+   */
+  private async getPackageJsonPaths(tgzFilePath: string): Promise<string[]> {
+    const filenames: string[] = [];
+
+    await tar.list({
+      file: tgzFilePath,
+      onentry: (entry) => {
+        if (entry.path.includes('package.json')) {
+          filenames.push(entry.path);
+        }
+      },
+    });
+
+    return filenames;
+  }
+
+  /**
+   * 从多个package.json路径中选择最短的（最接近根目录的）
+   * @param paths package.json文件路径列表
+   * @returns 最短的路径
+   */
+  private selectShortestPackageJsonPath(paths: string[]): string | null {
+    if (paths.length === 0) {
+      return null;
+    }
+
+    // 按路径长度排序，选择最短的
+    const sortedPaths = paths.sort((a, b) => {
+      // 首先按路径分段数排序（/的数量）
+      const aSegments = a.split('/').length;
+      const bSegments = b.split('/').length;
+
+      if (aSegments !== bSegments) {
+        return aSegments - bSegments;
+      }
+
+      // 如果分段数相同，按字符串长度排序
+      return a.length - b.length;
+    });
+
+    return sortedPaths[0] || null;
+  }
+
+  /**
    * 从tar文件中提取package.json内容
    * @param tgzFilePath .tgz文件路径
    * @returns package.json内容字符串
    */
   private async extractPackageJsonFromTar(tgzFilePath: string): Promise<string | null> {
-    return new Promise((resolve, reject) => {
-      let packageJsonContent: string | null = null;
-      let hasError = false;
+    try {
+      // 首先获取所有package.json文件路径
+      const packageJsonPaths = await this.getPackageJsonPaths(tgzFilePath);
 
-      // 设置超时，避免长时间阻塞
-      const timeout = setTimeout(() => {
-        if (!hasError) {
-          hasError = true;
-          reject(new Error('解析tar文件超时'));
-        }
-      }, 30000); // 30秒超时
+      // 选择最短的路径（最接近根目录）
+      const targetPath = this.selectShortestPackageJsonPath(packageJsonPaths);
 
-      try {
-        tar
-          .list({
-            file: tgzFilePath,
-            onentry: (entry) => {
-              if (hasError) return;
-
-              // 查找package/package.json文件（标准npm包结构）
-              if (entry.path === 'package/package.json' || entry.path.endsWith('/package.json')) {
-                const chunks: Buffer[] = [];
-
-                entry.on('data', (chunk: Buffer) => {
-                  if (!hasError) {
-                    chunks.push(chunk);
-                  }
-                });
-
-                entry.on('end', () => {
-                  if (!hasError && chunks.length > 0) {
-                    packageJsonContent = Buffer.concat(chunks).toString('utf8');
-                  }
-                });
-
-                entry.on('error', (error: unknown) => {
-                  if (!hasError) {
-                    hasError = true;
-                    clearTimeout(timeout);
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    reject(new Error(`读取package.json失败: ${errorMessage}`));
-                  }
-                });
-              }
-            },
-          })
-          .then(() => {
-            if (!hasError) {
-              clearTimeout(timeout);
-              resolve(packageJsonContent);
-            }
-          })
-          .catch((error: unknown) => {
-            if (!hasError) {
-              hasError = true;
-              clearTimeout(timeout);
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              reject(new Error(`解析tar文件失败: ${errorMessage}`));
-            }
-          });
-      } catch (error) {
-        if (!hasError) {
-          hasError = true;
-          clearTimeout(timeout);
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          reject(new Error(`解析tar文件失败: ${errorMessage}`));
-        }
+      if (!targetPath) {
+        return null;
       }
-    });
+
+      // 提取选中的package.json文件内容
+      return new Promise((resolve, reject) => {
+        let packageJsonContent: string | null = null;
+        let hasError = false;
+
+        // 设置超时，避免长时间阻塞
+        const timeout = setTimeout(() => {
+          if (!hasError) {
+            hasError = true;
+            reject(new Error('解析tar文件超时'));
+          }
+        }, 30000); // 30秒超时
+
+        try {
+          tar
+            .list({
+              file: tgzFilePath,
+              onentry: (entry) => {
+                if (hasError) return;
+
+                // 只处理我们选中的package.json文件
+                if (entry.path === targetPath) {
+                  const chunks: Buffer[] = [];
+
+                  entry.on('data', (chunk: Buffer) => {
+                    if (!hasError) {
+                      chunks.push(chunk);
+                    }
+                  });
+
+                  entry.on('end', () => {
+                    if (!hasError && chunks.length > 0) {
+                      packageJsonContent = Buffer.concat(chunks).toString('utf8');
+                    }
+                  });
+
+                  entry.on('error', (error: unknown) => {
+                    if (!hasError) {
+                      hasError = true;
+                      clearTimeout(timeout);
+                      const errorMessage = error instanceof Error ? error.message : String(error);
+                      reject(new Error(`读取package.json失败: ${errorMessage}`));
+                    }
+                  });
+                }
+              },
+            })
+            .then(() => {
+              if (!hasError) {
+                clearTimeout(timeout);
+                resolve(packageJsonContent);
+              }
+            })
+            .catch((error: unknown) => {
+              if (!hasError) {
+                hasError = true;
+                clearTimeout(timeout);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                reject(new Error(`解析tar文件失败: ${errorMessage}`));
+              }
+            });
+        } catch (error) {
+          if (!hasError) {
+            hasError = true;
+            clearTimeout(timeout);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            reject(new Error(`解析tar文件失败: ${errorMessage}`));
+          }
+        }
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`获取package.json路径失败: ${errorMessage}`);
+    }
   }
 
   /**

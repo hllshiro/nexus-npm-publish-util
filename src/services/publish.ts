@@ -55,7 +55,7 @@ export class PublishService {
       }
 
       // 执行优化的发布流程
-      return await this.packageManager.publishPackages(config);
+      return await this.packageManager.publishPackages();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('优化发布流程执行失败', { error: errorMessage });
