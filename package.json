@@ -12,16 +12,9 @@
     "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:unit": "bun test src/services/__tests__",
-    "test:integration": "bun run scripts/run-integration-tests.ts --test integration",
-    "test:performance": "bun run scripts/run-integration-tests.ts --test performance",
-    "test:all": "bun run scripts/run-integration-tests.ts --all",
     "prepare": "husky",
     "commitlint": "commitlint --edit",
-    "lint:staged": "lint-staged",
-    "test:commit-msg": "node scripts/test-commit-msg.js"
+    "lint:staged": "lint-staged"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

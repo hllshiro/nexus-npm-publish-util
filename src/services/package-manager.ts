@@ -12,7 +12,7 @@ import type {
   PackageUploader,
   PackageInfoExtractor,
 } from '@/types/package.js';
-import type { OptimizedPublishConfig, OperationResult } from '@/types/config.js';
+import type { PublishConfig, OperationResult } from '@/types/config.js';
 import type { GeneralProgressTracker, DetailedProgressReport } from './progress-tracker.js';
 import type { ProgressReport } from '@/types/error.js';
 import { FastGlobPackageScanner } from './package-scanner.js';
@@ -20,33 +20,8 @@ import { RegistryPackageChecker } from './package-checker.js';
 import { FetchPackageUploader } from './package-uploader.js';
 import { TarPackageInfoExtractor } from './package-info-extractor.js';
 import { createProgressTracker } from './progress-tracker.js';
-import { enhancedLogger } from '@/utils/enhanced-logger.js';
-import { LogLevel } from '@/types/logger.js';
+import { logger } from '@/utils/logger.js';
 import { asyncFn } from '@/utils/task.js';
-
-/**
- * 包管理器配置接口
- */
-export interface PackageManagerConfig {
-  /** 发布目录 */
-  publishDir: string;
-  /** 发布URL */
-  publishUrl: string;
-  /** 认证信息 */
-  publishAuth: string;
-  /** 线程数 */
-  threadNumber: number;
-  /** 文件扫描模式，默认为递归扫描 */
-  scanPattern?: string;
-  /** HTTP请求超时时间（毫秒） */
-  requestTimeout?: number;
-  /** 连接超时时间（毫秒） */
-  connectTimeout?: number;
-  /** 是否启用详细日志记录 */
-  enableDetailedLogging?: boolean;
-  /** 最大并发数，默认使用threadNumber */
-  maxConcurrency?: number;
-}
 
 /**
  * 任务执行统计接口
@@ -78,25 +53,24 @@ export interface TaskExecutionStats {
  * 包管理器实现类
  */
 export class DefaultPackageManager implements PackageManager {
-  private readonly config: Required<PackageManagerConfig>;
+  private readonly config: Required<PublishConfig>;
   private readonly scanner: PackageScanner;
   private readonly checker: PackageChecker;
   private readonly uploader: PackageUploader;
   private readonly extractor: PackageInfoExtractor;
   private readonly progressTracker: GeneralProgressTracker;
 
-  constructor(config: PackageManagerConfig) {
+  constructor(config: PublishConfig) {
     // 设置默认配置
     this.config = {
       publishDir: config.publishDir,
-      publishUrl: config.publishUrl,
+      publishRegistry: config.publishRegistry,
       publishAuth: config.publishAuth,
       threadNumber: config.threadNumber,
       scanPattern: config.scanPattern ?? '**/*.tgz',
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
       connectTimeout: config.connectTimeout ?? 30000, // 30秒
       enableDetailedLogging: config.enableDetailedLogging ?? false,
-      maxConcurrency: config.maxConcurrency ?? config.threadNumber,
     };
 
     // 初始化组件
@@ -114,10 +88,10 @@ export class DefaultPackageManager implements PackageManager {
     this.extractor = new TarPackageInfoExtractor();
     this.progressTracker = createProgressTracker(this.config.enableDetailedLogging);
 
-    enhancedLogger.info('包管理器初始化完成', {
+    logger.info('包管理器初始化完成', {
       publishDir: this.config.publishDir,
-      publishUrl: this.config.publishUrl,
-      maxConcurrency: this.config.maxConcurrency,
+      publishRegistry: this.config.publishRegistry,
+      threadNumber: this.config.threadNumber,
     });
   }
 
@@ -126,14 +100,14 @@ export class DefaultPackageManager implements PackageManager {
    * @param config 发布配置（可选，用于覆盖构造函数配置）
    * @returns 操作结果
    */
-  async publishPackages(config?: OptimizedPublishConfig): Promise<OperationResult> {
+  async publishPackages(config?: PublishConfig): Promise<OperationResult> {
     const startTime = Date.now();
     const effectiveConfig = config ? { ...this.config, ...config } : this.config;
 
-    enhancedLogger.info('开始执行包发布流程', {
+    logger.info('开始执行包发布流程', {
       publishDir: effectiveConfig.publishDir,
-      publishUrl: effectiveConfig.publishUrl,
-      maxConcurrency: effectiveConfig.maxConcurrency,
+      publishRegistry: effectiveConfig.publishRegistry,
+      threadNumber: effectiveConfig.threadNumber,
     });
 
     try {
@@ -143,7 +117,7 @@ export class DefaultPackageManager implements PackageManager {
       const scanElapsedTime = Date.now() - scanStartTime;
 
       if (packageInfoList.length === 0) {
-        enhancedLogger.warn('未找到任何.tgz包文件', { publishDir: effectiveConfig.publishDir });
+        logger.warn('未找到任何.tgz包文件', { publishDir: effectiveConfig.publishDir });
         return { success: 0, failed: [] };
       }
 
@@ -174,7 +148,7 @@ export class DefaultPackageManager implements PackageManager {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      enhancedLogger.error('包发布流程执行失败', { error: errorMessage });
+      logger.error('包发布流程执行失败', { error: errorMessage });
 
       return {
         success: 0,
@@ -189,12 +163,12 @@ export class DefaultPackageManager implements PackageManager {
    * @returns 包信息列表
    */
   private async scanAndExtractPackages(publishDir: string): Promise<PackageInfo[]> {
-    enhancedLogger.info('开始扫描包文件', { publishDir });
+    logger.info('开始扫描包文件', { publishDir });
 
     try {
       // 扫描.tgz文件
       const tgzFiles = await this.scanner.scanPackages(publishDir);
-      enhancedLogger.info(`扫描到 ${tgzFiles.length} 个.tgz文件`);
+      logger.info(`扫描到 ${tgzFiles.length} 个.tgz文件`);
 
       if (tgzFiles.length === 0) {
         return [];
@@ -216,29 +190,24 @@ export class DefaultPackageManager implements PackageManager {
             packageInfoList.push(packageInfo);
 
             if (this.config.enableDetailedLogging) {
-              enhancedLogger.logStructured(LogLevel.DEBUG, {
-                message: '成功提取包信息',
-                operation: 'package_info_extraction',
-                packageName: packageInfo.packageName,
-                metadata: {
-                  version: packageInfo.version,
-                  filePath: packageInfo.filePath,
-                  fileName: packageInfo.fileName,
-                },
+              logger.debug('成功提取包信息', {
+                version: packageInfo.version,
+                filePath: packageInfo.filePath,
+                fileName: packageInfo.fileName,
               });
             }
           } else {
-            enhancedLogger.warn(`无法提取包信息: ${filePath}`);
+            logger.warn(`无法提取包信息: ${filePath}`);
           }
         },
-        Math.min(this.config.maxConcurrency, 10) // 限制并发数，避免文件系统过载
+        Math.min(this.config.threadNumber, 10) // 限制并发数，避免文件系统过载
       );
 
-      enhancedLogger.info(`成功提取 ${packageInfoList.length} 个包的信息`);
+      logger.info(`成功提取 ${packageInfoList.length} 个包的信息`);
       return packageInfoList;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      enhancedLogger.error('扫描包文件失败', { error: errorMessage, publishDir });
+      logger.error('扫描包文件失败', { error: errorMessage, publishDir });
       throw new Error(`扫描包文件失败: ${errorMessage}`);
     }
   }
@@ -251,11 +220,11 @@ export class DefaultPackageManager implements PackageManager {
    */
   private async checkPackageExistence(
     packageInfoList: PackageInfo[],
-    config: Required<PackageManagerConfig>
+    config: Required<PublishConfig>
   ): Promise<PublishTask[]> {
     const publishTasks: PublishTask[] = [];
 
-    enhancedLogger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
+    logger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
 
     // 使用并发控制检查包存在性
     await asyncFn(
@@ -267,7 +236,7 @@ export class DefaultPackageManager implements PackageManager {
           const exists = await this.checker.checkPackageExists(
             packageInfo.packageName,
             packageInfo.version,
-            config.publishUrl
+            config.publishRegistry
           );
 
           const needsUpload = !exists;
@@ -282,20 +251,11 @@ export class DefaultPackageManager implements PackageManager {
           });
 
           if (this.config.enableDetailedLogging) {
-            enhancedLogger.logStructured(LogLevel.DEBUG, {
-              message: '包存在性检查完成',
-              operation: 'package_existence_check',
-              packageName: packageInfo.packageName,
-              metadata: {
-                version: packageInfo.version,
-                exists,
-                needsUpload,
-              },
-            });
+            logger.debug('包存在性检查完成', { version: packageInfo.version, exists, needsUpload });
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          enhancedLogger.error(`检查包存在性失败: ${packageInfo.packageName}`, { error: errorMessage });
+          logger.error(`检查包存在性失败: ${packageInfo.packageName}`, { error: errorMessage });
 
           // 检查失败时，默认需要上传
           publishTasks.push({
@@ -309,13 +269,13 @@ export class DefaultPackageManager implements PackageManager {
           });
         }
       },
-      this.config.maxConcurrency
+      this.config.threadNumber
     );
 
     const packagesNeedingUpload = publishTasks.filter((task) => task.needsUpload).length;
     const packagesSkipped = publishTasks.length - packagesNeedingUpload;
 
-    enhancedLogger.info('包存在性检查完成', {
+    logger.info('包存在性检查完成', {
       totalPackages: publishTasks.length,
       needsUpload: packagesNeedingUpload,
       skipped: packagesSkipped,
@@ -332,16 +292,16 @@ export class DefaultPackageManager implements PackageManager {
    */
   private async executeUploadTasks(
     publishTasks: PublishTask[],
-    config: Required<PackageManagerConfig>
+    config: Required<PublishConfig>
   ): Promise<OperationResult> {
     const tasksNeedingUpload = publishTasks.filter((task) => task.needsUpload);
 
     if (tasksNeedingUpload.length === 0) {
-      enhancedLogger.info('没有需要上传的包');
+      logger.info('没有需要上传的包');
       return { success: 0, failed: [] };
     }
 
-    enhancedLogger.info('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
+    logger.info('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
     const result: OperationResult = {
       success: 0,
@@ -359,7 +319,7 @@ export class DefaultPackageManager implements PackageManager {
         try {
           const uploadResult = await this.uploader.uploadPackage(
             packageInfo.filePath,
-            config.publishUrl,
+            config.publishRegistry,
             config.publishAuth
           );
 
@@ -373,15 +333,10 @@ export class DefaultPackageManager implements PackageManager {
             });
 
             if (this.config.enableDetailedLogging) {
-              enhancedLogger.logStructured(LogLevel.INFO, {
-                message: '包上传成功',
-                operation: 'package_upload_success',
-                packageName: packageInfo.packageName,
-                metadata: {
-                  version: packageInfo.version,
-                  statusCode: uploadResult.statusCode,
-                  fileName: packageInfo.fileName,
-                },
+              logger.info('包上传成功', {
+                version: packageInfo.version,
+                statusCode: uploadResult.statusCode,
+                fileName: packageInfo.fileName,
               });
             }
           } else {
@@ -394,7 +349,7 @@ export class DefaultPackageManager implements PackageManager {
               statusDetail: '上传失败',
             });
 
-            enhancedLogger.error('包上传失败', {
+            logger.error('包上传失败', {
               packageName: packageInfo.packageName,
               error: uploadResult.error,
               statusCode: uploadResult.statusCode,
@@ -410,16 +365,16 @@ export class DefaultPackageManager implements PackageManager {
             statusDetail: '上传异常',
           });
 
-          enhancedLogger.error('包上传异常', {
+          logger.error('包上传异常', {
             packageName: packageInfo.packageName,
             error: errorMessage,
           });
         }
       },
-      this.config.maxConcurrency
+      this.config.threadNumber
     );
 
-    enhancedLogger.info('上传任务执行完成', {
+    logger.info('上传任务执行完成', {
       totalTasks: tasksNeedingUpload.length,
       successful: result.success,
       failed: result.failed.length,
@@ -460,26 +415,26 @@ export class DefaultPackageManager implements PackageManager {
     const successRate =
       stats.totalPackages > 0 ? ((stats.successfulUploads / stats.totalPackages) * 100).toFixed(2) : '0.00';
 
-    enhancedLogger.info('=== 包发布完成报告 ===');
-    enhancedLogger.info(`总包数: ${stats.totalPackages}`);
-    enhancedLogger.info(`扫描到的包: ${stats.scannedPackages}`);
-    enhancedLogger.info(`需要上传: ${stats.packagesNeedingUpload}`);
-    enhancedLogger.info(`成功上传: ${stats.successfulUploads}`);
-    enhancedLogger.info(`失败: ${stats.failedPackages}`);
-    enhancedLogger.info(`跳过（已存在）: ${stats.skippedPackages}`);
-    enhancedLogger.info(`成功率: ${successRate}%`);
-    enhancedLogger.info(`总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`);
+    logger.info('=== 包发布完成报告 ===');
+    logger.info(`总包数: ${stats.totalPackages}`);
+    logger.info(`扫描到的包: ${stats.scannedPackages}`);
+    logger.info(`需要上传: ${stats.packagesNeedingUpload}`);
+    logger.info(`成功上传: ${stats.successfulUploads}`);
+    logger.info(`失败: ${stats.failedPackages}`);
+    logger.info(`跳过（已存在）: ${stats.skippedPackages}`);
+    logger.info(`成功率: ${successRate}%`);
+    logger.info(`总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`);
 
     if (this.config.enableDetailedLogging) {
-      enhancedLogger.info('=== 各阶段耗时 ===');
-      enhancedLogger.info(`扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`);
-      enhancedLogger.info(`检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`);
-      enhancedLogger.info(`上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`);
+      logger.info('=== 各阶段耗时 ===');
+      logger.info(`扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`);
+      logger.info(`检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`);
+      logger.info(`上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`);
     }
 
     // 输出进度跟踪器的详细报告
     const finalReport = this.progressTracker.generateFinalReport();
-    enhancedLogger.info('\n' + finalReport);
+    logger.info('\n' + finalReport);
   }
 
   /**
@@ -508,7 +463,7 @@ export class DefaultPackageManager implements PackageManager {
 /**
  * 创建包管理器实例
  */
-export function createPackageManager(config: PackageManagerConfig): PackageManager {
+export function createPackageManager(config: PublishConfig): PackageManager {
   return new DefaultPackageManager(config);
 }
 
@@ -516,5 +471,5 @@ export function createPackageManager(config: PackageManagerConfig): PackageManag
  * 默认包管理器实例工厂
  */
 export const packageManagerFactory = {
-  create: (config: PackageManagerConfig): PackageManager => new DefaultPackageManager(config),
+  create: (config: PublishConfig): PackageManager => new DefaultPackageManager(config),
 };

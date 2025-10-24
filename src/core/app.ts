@@ -10,7 +10,7 @@
  * - 支持灵活的配置覆盖和默认值应用
  */
 
-import type { CliArgs, OptimizedPublishConfig } from '@/types/config';
+import type { CliArgs, PublishConfig } from '@/types/config';
 import { logger } from '@/utils/logger.js';
 import { createPackageManager } from '@/services/package-manager.js';
 
@@ -42,9 +42,9 @@ export class App {
 
     try {
       // 创建优化的发布配置，合并默认值和覆盖参数
-      const publishConfig: OptimizedPublishConfig = {
+      const publishConfig: PublishConfig = {
         publishDir: this.config.publishDir,
-        publishUrl: this.config.publishUrl,
+        publishRegistry: this.config.publishRegistry,
         publishAuth: this.config.publishAuth,
         threadNumber: this.config.threadNumber,
         // 默认的优化配置

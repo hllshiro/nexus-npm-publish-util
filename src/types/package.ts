@@ -1,4 +1,4 @@
-import type { OptimizedPublishConfig, OperationResult } from './config.js';
+import type { PublishConfig, OperationResult } from './config.js';
 
 /**
  * 包依赖信息
@@ -117,7 +117,7 @@ export interface PackageManager {
    * @param config 发布配置
    * @returns 操作结果
    */
-  publishPackages(config: OptimizedPublishConfig): Promise<OperationResult>;
+  publishPackages(config: PublishConfig): Promise<OperationResult>;
 }
 
 /**

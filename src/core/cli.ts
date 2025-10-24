@@ -19,9 +19,9 @@ export function parseCliArgs(): CliArgs {
       type: 'string',
       required: true,
     })
-    .option('url', {
-      alias: 'u',
-      description: 'Repository URL',
+    .option('registry', {
+      alias: 'r',
+      description: 'Repository registry',
       type: 'string',
       required: true,
     })
@@ -31,14 +31,13 @@ export function parseCliArgs(): CliArgs {
       type: 'string',
       required: true,
     })
-
     .option('threads', {
       alias: 't',
       description: 'Concurrent threads',
       type: 'number',
       default: 1,
     })
-    .wrap(100)
+    .wrap(80)
     .help()
     .parseSync();
 
@@ -46,13 +45,9 @@ export function parseCliArgs(): CliArgs {
   const result: CliArgs = {
     publishDir: argv.dir,
     threadNumber: argv.threads,
-    publishUrl: argv.url,
+    publishRegistry: argv.registry,
     publishAuth: argv.auth,
   };
-
-  // 只添加定义了的可选属性
-  if (argv.help !== undefined) result.help = argv.help as boolean;
-  if (argv.version !== undefined) result.version = argv.version as boolean;
 
   return result;
 }

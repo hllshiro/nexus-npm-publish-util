@@ -8,7 +8,6 @@ import type { LoggerConfig, LogEntry } from '../types/logger.js';
  */
 export class Logger {
   private config: LoggerConfig;
-  private static instance: Logger;
   private static sharedLogFile: string | undefined;
 
   constructor(config: Partial<LoggerConfig> = {}) {
@@ -31,16 +30,6 @@ export class Logger {
       this.ensureLogDirectory();
       this.cleanupOldLogFiles();
     }
-  }
-
-  /**
-   * 获取单例实例
-   */
-  public static getInstance(config?: Partial<LoggerConfig>): Logger {
-    if (!Logger.instance) {
-      Logger.instance = new Logger(config);
-    }
-    return Logger.instance;
   }
 
   /**
@@ -197,40 +186,12 @@ export class Logger {
   public error(message: string, data?: unknown): void {
     this.writeLog(LogLevel.ERROR, message, data);
   }
-
-  /**
-   * 更新配置
-   */
-  public updateConfig(config: Partial<LoggerConfig>): void {
-    const oldLogFile = this.config.logFile;
-    this.config = { ...this.config, ...config };
-
-    // 只有在日志文件路径发生变化时才重新生成时间戳文件名
-    if (this.config.enableFile && this.config.logFile && this.config.logFile !== oldLogFile) {
-      // 如果已经有共享的日志文件，使用它；否则生成新的
-      if (Logger.sharedLogFile) {
-        this.config.logFile = Logger.sharedLogFile;
-      } else {
-        this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
-        Logger.sharedLogFile = this.config.logFile;
-      }
-      this.ensureLogDirectory();
-      this.cleanupOldLogFiles();
-    }
-  }
-
-  /**
-   * 获取当前配置
-   */
-  public getConfig(): LoggerConfig {
-    return { ...this.config };
-  }
 }
 
 /**
  * 默认日志实例 - 同时输出到控制台和文件
  */
-export const logger = Logger.getInstance({
+export const logger = new Logger({
   level: LogLevel.INFO,
   enableConsole: true,
   enableFile: true,
@@ -247,7 +208,3 @@ export const fileLogger = new Logger({
   enableFile: true,
   logFile: 'logs/app.log',
 });
-
-// 注意：为避免循环依赖，progress-logger和legacy-logger-adapter需要直接导入
-// export { progressLogger, simpleProgressLogger } from './progress-logger.js';
-// export { legacyLogger, simpleLegacyLogger, createLegacyLoggerAdapter } from './legacy-logger-adapter.js';

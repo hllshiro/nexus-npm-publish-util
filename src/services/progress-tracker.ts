@@ -5,8 +5,7 @@
 
 import type { ProgressTracker, ProgressReport } from '@/types/error.js';
 import type { PackageInfo } from '@/types/package.js';
-import { enhancedLogger } from '@/utils/enhanced-logger.js';
-import { LogLevel } from '@/types/logger.js';
+import { logger } from '@/utils/logger.js';
 
 /**
  * 包处理状态枚举
@@ -136,16 +135,12 @@ export class GeneralProgressTracker implements ProgressTracker {
       });
     }
 
-    enhancedLogger.info(`初始化进度跟踪器: ${this.total} 个包`);
+    logger.info(`初始化进度跟踪器: ${this.total} 个包`);
 
     if (this.enableDetailedLogging) {
-      enhancedLogger.logStructured(LogLevel.INFO, {
-        message: '进度跟踪器初始化完成',
-        operation: 'progress_tracker_init',
-        metadata: {
-          totalPackages: this.total,
-          packages: packages.map((p) => ({ name: p.packageName, version: p.version })),
-        },
+      logger.info('进度跟踪器初始化完成', {
+        totalPackages: this.total,
+        packages: packages.map((p) => ({ name: p.packageName, version: p.version })),
       });
     }
   }
@@ -170,7 +165,7 @@ export class GeneralProgressTracker implements ProgressTracker {
     const packageInfo = this.packages.get(packageName);
 
     if (!packageInfo) {
-      enhancedLogger.warn(`尝试更新未知包的进度: ${packageName}`);
+      logger.warn(`尝试更新未知包的进度: ${packageName}`);
       return;
     }
 
@@ -304,15 +299,10 @@ export class GeneralProgressTracker implements ProgressTracker {
    * 记录进度更新日志
    */
   private logProgressUpdate(packageName: string, status: string, additionalInfo?: Record<string, unknown>): void {
-    enhancedLogger.logStructured(LogLevel.INFO, {
-      message: `包处理进度更新: ${packageName} -> ${status}`,
-      operation: 'progress_update',
-      packageName,
-      metadata: {
-        status,
-        timestamp: new Date().toISOString(),
-        ...additionalInfo,
-      },
+    logger.info(`包处理进度更新: ${packageName} -> ${status}`, {
+      status,
+      timestamp: new Date().toISOString(),
+      ...additionalInfo,
     });
   }
 

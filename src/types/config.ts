@@ -1,9 +1,9 @@
 /**
  * 发布配置接口
  */
-export interface PublishConfig {
+export interface CliArgs {
   publishDir: string;
-  publishUrl: string;
+  publishRegistry: string;
   publishAuth: string;
   threadNumber: number;
 }
@@ -11,7 +11,7 @@ export interface PublishConfig {
 /**
  * 优化后的发布配置接口
  */
-export interface OptimizedPublishConfig extends PublishConfig {
+export interface PublishConfig extends CliArgs {
   /** 文件扫描模式，默认为递归扫描 */
   scanPattern?: string;
   /** HTTP请求超时时间（毫秒） */
@@ -20,16 +20,6 @@ export interface OptimizedPublishConfig extends PublishConfig {
   connectTimeout?: number;
   /** 是否启用详细日志记录 */
   enableDetailedLogging?: boolean;
-}
-
-/**
- * CLI参数接口 - 移除forcePublish，因为新设计中每个包都会单独检查
- */
-export interface CliArgs extends PublishConfig {
-  // 移除 forcePublish?: boolean; - 不再需要
-  // 帮助和版本
-  help?: boolean;
-  version?: boolean;
 }
 
 /**
