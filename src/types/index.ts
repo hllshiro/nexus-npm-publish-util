@@ -63,8 +63,8 @@ export interface ProgressTracker {
   failed: number;
 
   updateProgress(
-    packageName: string,
-    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed',
+    filePath: string,
+    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed' | 'skipped',
     additionalInfo?: {
       error?: string;
       statusCode?: number;

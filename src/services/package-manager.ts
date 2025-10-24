@@ -11,6 +11,7 @@ import { TarPackageInfoExtractor } from './package-info-extractor.js';
 import { createProgressTracker } from './progress-tracker.js';
 import { logger } from '@/utils/logger.js';
 import { asyncFn } from '@/utils/task.js';
+import ProgressBar from 'progress';
 import type {
   DetailedProgressReport,
   OperationResult,
@@ -25,6 +26,7 @@ import type {
   PublishTask,
   TaskExecutionStats,
 } from '@/types';
+import { PackageStatus } from '@/types';
 
 /**
  * 包管理器实现类
@@ -101,7 +103,7 @@ export class DefaultPackageManager implements PackageManager {
 
       // 更新所有包的扫描完成状态
       for (const packageInfo of packageInfoList) {
-        this.progressTracker.updateProgress(packageInfo.packageName, 'scanning', {
+        this.progressTracker.updateProgress(packageInfo.filePath, 'scanning', {
           statusDetail: '包信息提取完成',
         });
       }
@@ -156,6 +158,14 @@ export class DefaultPackageManager implements PackageManager {
         return [];
       }
 
+      // 创建进度条 - 文件信息提取
+      const extractProgressBar = new ProgressBar('提取包信息 [:bar] :current/:total :percent :etas', {
+        complete: '█',
+        incomplete: '░',
+        width: 40,
+        total: tgzFiles.length,
+      });
+
       // 提取包信息
       const packageInfoList: PackageInfo[] = [];
 
@@ -177,6 +187,9 @@ export class DefaultPackageManager implements PackageManager {
           } else {
             logger.warn(`无法提取包信息: ${filePath}`);
           }
+
+          // 更新进度条
+          extractProgressBar.tick();
         },
         Math.min(this.config.threadNumber, 10) // 限制并发数，避免文件系统过载
       );
@@ -204,11 +217,19 @@ export class DefaultPackageManager implements PackageManager {
 
     logger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
 
+    // 创建进度条 - 包检查
+    const checkProgressBar = new ProgressBar('检查包存在性 [:bar] :current/:total :percent :etas', {
+      complete: '█',
+      incomplete: '░',
+      width: 40,
+      total: packageInfoList.length,
+    });
+
     // 使用并发控制检查包存在性
     await asyncFn(
       packageInfoList,
       async (packageInfo: PackageInfo) => {
-        this.progressTracker.updateProgress(packageInfo.packageName, 'checking', { statusDetail: '检查包是否已存在' });
+        this.progressTracker.updateProgress(packageInfo.filePath, 'checking', { statusDetail: '检查包是否已存在' });
 
         try {
           const exists = await this.checker.checkPackageExists(
@@ -223,10 +244,20 @@ export class DefaultPackageManager implements PackageManager {
             needsUpload,
           });
 
-          this.progressTracker.updateProgress(packageInfo.packageName, 'checking', {
-            needsUpload,
-            statusDetail: exists ? '包已存在，跳过上传' : '包不存在，需要上传',
-          });
+          // 更新进度跟踪器状态
+          if (exists) {
+            // 包已存在，标记为跳过 - 使用特殊的skipped状态
+            this.progressTracker.updateProgress(packageInfo.filePath, 'skipped', {
+              needsUpload: false,
+              statusDetail: '包已存在，跳过上传',
+            });
+          } else {
+            // 包不存在，需要上传，但此时还未开始上传，保持checking状态
+            this.progressTracker.updateProgress(packageInfo.filePath, 'checking', {
+              needsUpload: true,
+              statusDetail: '包不存在，需要上传',
+            });
+          }
 
           if (this.config.enableDetailedLogging) {
             logger.debug('包存在性检查完成', { version: packageInfo.version, exists, needsUpload });
@@ -241,11 +272,14 @@ export class DefaultPackageManager implements PackageManager {
             needsUpload: true,
           });
 
-          this.progressTracker.updateProgress(packageInfo.packageName, 'failed', {
+          this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
             error: `检查存在性失败: ${errorMessage}`,
             needsUpload: true,
           });
         }
+
+        // 更新进度条
+        checkProgressBar.tick();
       },
       this.config.threadNumber
     );
@@ -281,6 +315,14 @@ export class DefaultPackageManager implements PackageManager {
 
     logger.info('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
+    // 创建进度条 - 包上传
+    const uploadProgressBar = new ProgressBar('上传包文件 [:bar] :current/:total :percent :etas', {
+      complete: '█',
+      incomplete: '░',
+      width: 40,
+      total: tasksNeedingUpload.length,
+    });
+
     const result: OperationResult = {
       success: 0,
       failed: [],
@@ -292,7 +334,7 @@ export class DefaultPackageManager implements PackageManager {
       async (task: PublishTask) => {
         const { packageInfo } = task;
 
-        this.progressTracker.updateProgress(packageInfo.packageName, 'uploading', { statusDetail: '正在上传包文件' });
+        this.progressTracker.updateProgress(packageInfo.filePath, 'uploading', { statusDetail: '正在上传包文件' });
 
         try {
           const uploadResult = await this.uploader.uploadPackage(
@@ -305,7 +347,7 @@ export class DefaultPackageManager implements PackageManager {
 
           if (uploadResult.success) {
             result.success++;
-            this.progressTracker.updateProgress(packageInfo.packageName, 'completed', {
+            this.progressTracker.updateProgress(packageInfo.filePath, 'completed', {
               statusDetail: '上传成功',
               ...(uploadResult.statusCode !== undefined && { statusCode: uploadResult.statusCode }),
             });
@@ -321,7 +363,7 @@ export class DefaultPackageManager implements PackageManager {
             const errorMsg = `上传失败 ${packageInfo.packageName} - ${uploadResult.error}`;
             result.failed.push(errorMsg);
 
-            this.progressTracker.updateProgress(packageInfo.packageName, 'failed', {
+            this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
               ...(uploadResult.error && { error: uploadResult.error }),
               ...(uploadResult.statusCode !== undefined && { statusCode: uploadResult.statusCode }),
               statusDetail: '上传失败',
@@ -338,7 +380,7 @@ export class DefaultPackageManager implements PackageManager {
           const errorMsg = `上传异常 ${packageInfo.packageName} - ${errorMessage}`;
           result.failed.push(errorMsg);
 
-          this.progressTracker.updateProgress(packageInfo.packageName, 'failed', {
+          this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
             error: errorMessage,
             statusDetail: '上传异常',
           });
@@ -348,6 +390,9 @@ export class DefaultPackageManager implements PackageManager {
             error: errorMessage,
           });
         }
+
+        // 更新进度条
+        uploadProgressBar.tick();
       },
       this.config.threadNumber
     );
@@ -390,17 +435,31 @@ export class DefaultPackageManager implements PackageManager {
    * 记录最终报告
    */
   private logFinalReport(stats: TaskExecutionStats): void {
-    const successRate =
-      stats.totalPackages > 0 ? ((stats.successfulUploads / stats.totalPackages) * 100).toFixed(2) : '0.00';
+    // 从进度跟踪器获取准确的统计数据
+    const allPackages = this.progressTracker.getAllPackageInfo();
+    let actualSuccessfulUploads = 0;
+    let actualFailedPackages = 0;
+    let actualSkippedPackages = 0;
+
+    for (const packageInfo of allPackages) {
+      if (packageInfo.status === PackageStatus.COMPLETED) {
+        // 包被成功上传
+        actualSuccessfulUploads++;
+      } else if (packageInfo.status === PackageStatus.SKIPPED) {
+        // 包已存在，被跳过
+        actualSkippedPackages++;
+      } else if (packageInfo.status === PackageStatus.FAILED) {
+        actualFailedPackages++;
+      }
+    }
 
     logger.info('=== 包发布完成报告 ===');
     logger.info(`总包数: ${stats.totalPackages}`);
     logger.info(`扫描到的包: ${stats.scannedPackages}`);
     logger.info(`需要上传: ${stats.packagesNeedingUpload}`);
-    logger.info(`成功上传: ${stats.successfulUploads}`);
-    logger.info(`失败: ${stats.failedPackages}`);
-    logger.info(`跳过（已存在）: ${stats.skippedPackages}`);
-    logger.info(`成功率: ${successRate}%`);
+    logger.info(`成功上传: ${actualSuccessfulUploads}`);
+    logger.info(`失败: ${actualFailedPackages}`);
+    logger.info(`跳过（已存在）: ${actualSkippedPackages}`);
     logger.info(`总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`);
 
     if (this.config.enableDetailedLogging) {

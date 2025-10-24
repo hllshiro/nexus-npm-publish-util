@@ -42,9 +42,9 @@ export class GeneralProgressTracker implements ProgressTracker {
     this.startTime = new Date();
     this.packages.clear();
 
-    // 初始化所有包的状态
+    // 初始化所有包的状态 - 使用文件路径作为唯一key
     for (const packageInfo of packages) {
-      this.packages.set(packageInfo.packageName, {
+      this.packages.set(packageInfo.filePath, {
         packageInfo,
         status: PackageStatus.PENDING,
         phaseTimings: {},
@@ -63,13 +63,13 @@ export class GeneralProgressTracker implements ProgressTracker {
 
   /**
    * 更新包的进度状态
-   * @param packageName 包名
+   * @param filePath 文件路径（作为唯一标识符）
    * @param status 状态
    * @param additionalInfo 额外信息
    */
   updateProgress(
-    packageName: string,
-    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed',
+    filePath: string,
+    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed' | 'skipped',
     additionalInfo?: {
       error?: string;
       statusCode?: number;
@@ -78,10 +78,10 @@ export class GeneralProgressTracker implements ProgressTracker {
     }
   ): void {
     const packageStatus = this.mapToPackageStatus(status);
-    const packageInfo = this.packages.get(packageName);
+    const packageInfo = this.packages.get(filePath);
 
     if (!packageInfo) {
-      logger.warn(`尝试更新未知包的进度: ${packageName}`);
+      logger.warn(`尝试更新未知包的进度: ${filePath}`);
       return;
     }
 
@@ -112,17 +112,17 @@ export class GeneralProgressTracker implements ProgressTracker {
       updatedInfo.endTime = now;
     }
 
-    this.packages.set(packageName, updatedInfo);
+    this.packages.set(filePath, updatedInfo);
 
     // 更新计数器
     this.updateCounters();
 
     // 更新当前操作描述
-    this.currentOperation = this.generateCurrentOperationDescription(packageName, status);
+    this.currentOperation = this.generateCurrentOperationDescription(packageInfo.packageInfo.packageName, status);
 
     // 记录详细日志
     if (this.enableDetailedLogging) {
-      this.logProgressUpdate(packageName, status, additionalInfo);
+      this.logProgressUpdate(packageInfo.packageInfo.packageName, status, additionalInfo);
     }
   }
 
@@ -141,6 +141,8 @@ export class GeneralProgressTracker implements ProgressTracker {
         return PackageStatus.COMPLETED;
       case 'failed':
         return PackageStatus.FAILED;
+      case 'skipped':
+        return PackageStatus.SKIPPED;
       default:
         return PackageStatus.PENDING;
     }
@@ -187,7 +189,7 @@ export class GeneralProgressTracker implements ProgressTracker {
     this.failed = 0;
 
     for (const packageInfo of this.packages.values()) {
-      if (packageInfo.status === PackageStatus.COMPLETED) {
+      if (packageInfo.status === PackageStatus.COMPLETED || packageInfo.status === PackageStatus.SKIPPED) {
         this.completed++;
       } else if (packageInfo.status === PackageStatus.FAILED) {
         this.failed++;
@@ -205,6 +207,7 @@ export class GeneralProgressTracker implements ProgressTracker {
       uploading: '上传',
       completed: '完成',
       failed: '失败',
+      skipped: '跳过',
     };
 
     const statusText = statusMap[status as keyof typeof statusMap] || status;
@@ -339,12 +342,28 @@ export class GeneralProgressTracker implements ProgressTracker {
           validTimings++;
         }
 
-        if (packageInfo.status === PackageStatus.COMPLETED) {
-          successful++;
-        } else if (packageInfo.status === PackageStatus.FAILED) {
-          failed++;
-        } else if (packageInfo.status === PackageStatus.SKIPPED) {
-          skipped++;
+        // 根据不同阶段和包状态来统计
+        if (phase === 'scan') {
+          // 扫描阶段：所有非PENDING的包都算成功
+          if (packageInfo.status !== PackageStatus.PENDING) {
+            successful++;
+          }
+        } else if (phase === 'check') {
+          // 检查阶段：区分成功检查、跳过和失败
+          if (packageInfo.status === PackageStatus.SKIPPED) {
+            skipped++;
+          } else if (packageInfo.status === PackageStatus.FAILED) {
+            failed++;
+          } else {
+            successful++;
+          }
+        } else if (phase === 'upload') {
+          // 上传阶段：只统计实际进入上传的包
+          if (packageInfo.status === PackageStatus.COMPLETED) {
+            successful++;
+          } else if (packageInfo.status === PackageStatus.FAILED) {
+            failed++;
+          }
         }
       }
     }
@@ -401,7 +420,11 @@ export class GeneralProgressTracker implements ProgressTracker {
           packageInfo.status
         );
       case 'upload':
-        return [PackageStatus.COMPLETED, PackageStatus.FAILED].includes(packageInfo.status);
+        // 上传阶段：只有实际需要上传的包才算参与了这个阶段
+        return (
+          [PackageStatus.COMPLETED, PackageStatus.FAILED].includes(packageInfo.status) &&
+          packageInfo.needsUpload !== false
+        );
       default:
         return false;
     }
@@ -426,17 +449,42 @@ export class GeneralProgressTracker implements ProgressTracker {
    */
   generateFinalReport(): string {
     const detailedReport = this.getDetailedProgressReport();
-    const successRate =
-      detailedReport.totalPackages > 0
-        ? ((detailedReport.uploadedPackages / detailedReport.totalPackages) * 100).toFixed(2)
-        : '0.00';
+
+    // 计算各种状态的包数量和收集明细
+    let completedPackages = 0;
+    let failedPackages = 0;
+    let skippedPackages = 0;
+
+    const completedList: string[] = [];
+    const failedList: string[] = [];
+    const skippedList: string[] = [];
+
+    for (const packageInfo of this.packages.values()) {
+      const packageName = packageInfo.packageInfo.packageName;
+      const version = packageInfo.packageInfo.version;
+      const fileName = packageInfo.packageInfo.fileName;
+
+      if (packageInfo.status === PackageStatus.COMPLETED) {
+        // 包被成功上传
+        completedPackages++;
+        completedList.push(`${packageName}@${version} (${fileName})`);
+      } else if (packageInfo.status === PackageStatus.SKIPPED) {
+        // 包已存在，被跳过
+        skippedPackages++;
+        skippedList.push(`${packageName}@${version} (${fileName})`);
+      } else if (packageInfo.status === PackageStatus.FAILED) {
+        failedPackages++;
+        const errorMsg = packageInfo.error || '未知错误';
+        failedList.push(`${packageName}@${version} (${fileName}) - ${errorMsg}`);
+      }
+    }
 
     const report = [
       '=== 发布完成报告 ===',
       `总包数: ${detailedReport.totalPackages}`,
-      `成功上传: ${detailedReport.uploadedPackages}`,
-      `失败: ${detailedReport.failedPackages}`,
-      `成功率: ${successRate}%`,
+      `成功上传: ${completedPackages}`,
+      `失败: ${failedPackages}`,
+      `跳过: ${skippedPackages}`,
       `总耗时: ${Math.round(detailedReport.totalElapsedTime / 1000)}秒`,
       `处理速率: ${detailedReport.processingRate.toFixed(2)} 包/秒`,
       '',
@@ -444,15 +492,31 @@ export class GeneralProgressTracker implements ProgressTracker {
     ];
 
     for (const phase of detailedReport.phaseStatistics) {
+      const skippedText = phase.skipped > 0 ? `, 跳过${phase.skipped}个` : '';
       report.push(
-        `${phase.phase}: 处理${phase.processed}个, 成功${phase.successful}个, 失败${phase.failed}个, 平均耗时${phase.averageTime}ms`
+        `${phase.phase}: 处理${phase.processed}个, 成功${phase.successful}个, 失败${phase.failed}个${skippedText}, 平均耗时${phase.averageTime}ms`
       );
     }
 
-    if (detailedReport.errors.length > 0) {
-      report.push('', '=== 失败详情 ===');
-      detailedReport.errors.forEach((error, index) => {
-        report.push(`${index + 1}. [${error.phase}] ${error.packageName}: ${error.error}`);
+    // 添加详细明细到日志文件
+    if (completedList.length > 0) {
+      report.push('', '=== 成功上传明细 ===');
+      completedList.forEach((item, index) => {
+        report.push(`${index + 1}. ${item}`);
+      });
+    }
+
+    if (skippedList.length > 0) {
+      report.push('', '=== 跳过包明细（已存在）===');
+      skippedList.forEach((item, index) => {
+        report.push(`${index + 1}. ${item}`);
+      });
+    }
+
+    if (failedList.length > 0) {
+      report.push('', '=== 失败包明细 ===');
+      failedList.forEach((item, index) => {
+        report.push(`${index + 1}. ${item}`);
       });
     }
 

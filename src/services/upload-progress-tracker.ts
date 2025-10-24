@@ -285,15 +285,11 @@ export class UploadProgressTracker implements ProgressTracker {
     const stats = this.getDetailedStats();
     const { summary, timing, errors } = stats;
 
-    const successRate =
-      summary.totalPackages > 0 ? ((summary.uploadedPackages / summary.totalPackages) * 100).toFixed(2) : '0.00';
-
     const report = [
       '=== 上传完成报告 ===',
       `总包数: ${summary.totalPackages}`,
       `成功上传: ${summary.uploadedPackages}`,
       `失败: ${summary.failedPackages}`,
-      `成功率: ${successRate}%`,
       `总耗时: ${timing.elapsedSeconds}秒`,
       `平均每包耗时: ${timing.averageTimePerPackage.toFixed(2)}秒`,
     ];

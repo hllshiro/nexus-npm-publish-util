@@ -74,7 +74,7 @@ export class FetchPackageUploader implements PackageUploader {
       if (this.config.progressTracker) {
         // 注意：如果使用 UploadProgressTracker，可以通过其 setPackageFileSize 方法设置文件大小
         // 这里为了类型安全，我们跳过这个可选功能
-        this.config.progressTracker.updateProgress(packageName, 'uploading', {
+        this.config.progressTracker.updateProgress(filePath, 'uploading', {
           needsUpload: true,
           statusDetail: `开始上传文件: ${filePath}`,
         });
@@ -87,7 +87,7 @@ export class FetchPackageUploader implements PackageUploader {
         fileSize: this.formatFileSize(fileSize),
         registryUrl,
         uploadUrl,
-        authFormat: auth.includes(':') ? 'username:password' : '格式错误',
+        authFormat: auth,
         timeout: this.config.requestTimeout,
       };
 
@@ -113,7 +113,7 @@ export class FetchPackageUploader implements PackageUploader {
         if (result.error) updateInfo.error = result.error;
         if (result.statusCode) updateInfo.statusCode = result.statusCode;
 
-        this.config.progressTracker.updateProgress(packageName, status, updateInfo);
+        this.config.progressTracker.updateProgress(filePath, status, updateInfo);
       }
 
       // 记录上传结果
@@ -142,7 +142,7 @@ export class FetchPackageUploader implements PackageUploader {
           };
         if (uploadError.statusCode) failedUpdateInfo.statusCode = uploadError.statusCode;
 
-        this.config.progressTracker.updateProgress(packageName, 'failed', failedUpdateInfo);
+        this.config.progressTracker.updateProgress(filePath, 'failed', failedUpdateInfo);
       }
 
       // 记录错误信息
