@@ -6,6 +6,7 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { CliArgs } from '@/types/config';
+import { parseRegistryUrl } from '@/utils/registry-url-parser.js';
 
 /**
  * 解析命令行参数
@@ -40,6 +41,15 @@ export function parseCliArgs(): CliArgs {
     .wrap(80)
     .help()
     .parseSync();
+
+  // 验证registry URL格式
+  try {
+    parseRegistryUrl(argv.registry);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Registry URL格式错误: ${errorMessage}`);
+    process.exit(1);
+  }
 
   // 构建CLI参数对象 - 移除forcePublish，因为新设计中每个包都会单独检查
   const result: CliArgs = {

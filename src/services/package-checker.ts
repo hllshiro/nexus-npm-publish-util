@@ -1,6 +1,7 @@
 import type { PackageChecker, PackageRegistryResponse } from '../types/package.js';
 import type { PackageCheckError } from '../types/error.js';
 import { ErrorType } from '../types/error.js';
+import { parseRegistryUrl } from '@/utils/registry-url-parser.js';
 
 /**
  * 包检查配置接口
@@ -30,13 +31,17 @@ export class RegistryPackageChecker implements PackageChecker {
    * 检查包是否存在于远程仓库
    * @param packageName 包名
    * @param version 版本号
-   * @param registryUrl 仓库URL
+   * @param registryUrl 仓库URL (格式: ${BASEURL}/repository/{repository}/)
    * @returns 是否存在
    */
   async checkPackageExists(packageName: string, version: string, registryUrl: string): Promise<boolean> {
     try {
+      // 解析registry URL，构建检查URL
+      const { baseUrl, repository } = parseRegistryUrl(registryUrl);
       const encodedName = encodeURIComponent(packageName);
-      const checkUrl = `${registryUrl.replace(/\/$/, '')}/${encodedName}`;
+
+      // 构建检查URL：${BASEURL}/repository/{repository}/${packageName}
+      const checkUrl = `${baseUrl}repository/${repository}/${encodedName}`;
 
       const response = await this.fetchWithTimeout(checkUrl);
 

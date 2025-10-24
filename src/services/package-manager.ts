@@ -100,24 +100,23 @@ export class DefaultPackageManager implements PackageManager {
    * @param config 发布配置（可选，用于覆盖构造函数配置）
    * @returns 操作结果
    */
-  async publishPackages(config?: PublishConfig): Promise<OperationResult> {
+  async publishPackages(): Promise<OperationResult> {
     const startTime = Date.now();
-    const effectiveConfig = config ? { ...this.config, ...config } : this.config;
 
     logger.info('开始执行包发布流程', {
-      publishDir: effectiveConfig.publishDir,
-      publishRegistry: effectiveConfig.publishRegistry,
-      threadNumber: effectiveConfig.threadNumber,
+      publishDir: this.config.publishDir,
+      publishRegistry: this.config.publishRegistry,
+      threadNumber: this.config.threadNumber,
     });
 
     try {
       // 阶段1: 扫描包文件
       const scanStartTime = Date.now();
-      const packageInfoList = await this.scanAndExtractPackages(effectiveConfig.publishDir);
+      const packageInfoList = await this.scanAndExtractPackages(this.config.publishDir);
       const scanElapsedTime = Date.now() - scanStartTime;
 
       if (packageInfoList.length === 0) {
-        logger.warn('未找到任何.tgz包文件', { publishDir: effectiveConfig.publishDir });
+        logger.warn('未找到任何.tgz包文件', { publishDir: this.config.publishDir });
         return { success: 0, failed: [] };
       }
 
@@ -126,12 +125,12 @@ export class DefaultPackageManager implements PackageManager {
 
       // 阶段2: 检查包存在性（如果未跳过）
       const checkStartTime = Date.now();
-      const publishTasks = await this.checkPackageExistence(packageInfoList, effectiveConfig);
+      const publishTasks = await this.checkPackageExistence(packageInfoList, this.config);
       const checkElapsedTime = Date.now() - checkStartTime;
 
       // 阶段3: 执行上传任务
       const uploadStartTime = Date.now();
-      const result = await this.executeUploadTasks(publishTasks, effectiveConfig);
+      const result = await this.executeUploadTasks(publishTasks, this.config);
       const uploadElapsedTime = Date.now() - uploadStartTime;
 
       // 生成执行统计

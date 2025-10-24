@@ -9,6 +9,7 @@ import type { PackageUploader, UploadResult } from '@/types/package.js';
 import type { PackageUploadError } from '@/types/error.js';
 import { ErrorType } from '@/types/error.js';
 import { fileLogger, logger } from '@/utils/logger.js';
+import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.js';
 import type { UploadProgressTracker } from './upload-progress-tracker.js';
 
 // 定义错误接口
@@ -60,17 +61,20 @@ export class FetchPackageUploader implements PackageUploader {
   /**
    * 上传包文件到远程仓库
    * @param filePath 文件路径
-   * @param uploadUrl 上传URL
+   * @param registryUrl Registry URL (格式: ${BASEURL}/repository/{repository}/)
    * @param auth 认证信息 (username:password格式)
    * @returns 上传结果
    */
-  async uploadPackage(filePath: string, uploadUrl: string, auth: string): Promise<UploadResult> {
+  async uploadPackage(filePath: string, registryUrl: string, auth: string): Promise<UploadResult> {
     const fileName = basename(filePath);
     const packageName = this.extractPackageNameFromFileName(fileName);
 
     try {
       // 验证输入参数
-      this.validateInputs(filePath, uploadUrl, auth);
+      this.validateInputs(filePath, registryUrl, auth);
+
+      // 构建实际的上传URL
+      const uploadUrl = buildUploadUrlFromRegistry(registryUrl);
 
       // 获取文件大小信息
       let fileStats;
@@ -103,6 +107,7 @@ export class FetchPackageUploader implements PackageUploader {
         fileName,
         packageName,
         fileSize: this.formatFileSize(fileSize),
+        registryUrl,
         uploadUrl,
         authFormat: auth.includes(':') ? 'username:password' : '格式错误',
         timeout: this.config.requestTimeout,
@@ -145,7 +150,7 @@ export class FetchPackageUploader implements PackageUploader {
 
       return result;
     } catch (error) {
-      const uploadError = this.handleUploadError(error, filePath, uploadUrl);
+      const uploadError = this.handleUploadError(error, filePath, registryUrl);
 
       // 更新进度跟踪器 - 上传失败
       if (this.config.progressTracker) {
@@ -161,7 +166,7 @@ export class FetchPackageUploader implements PackageUploader {
         error: uploadError.message,
         type: uploadError.type,
         filePath,
-        uploadUrl,
+        registryUrl,
         details: uploadError.details,
       });
 
@@ -178,21 +183,29 @@ export class FetchPackageUploader implements PackageUploader {
   /**
    * 验证输入参数
    */
-  private validateInputs(filePath: string, uploadUrl: string, auth: string): void {
+  private validateInputs(filePath: string, registryUrl: string, auth: string): void {
     if (!filePath || typeof filePath !== 'string') {
       throw new Error('文件路径不能为空');
     }
 
-    if (!uploadUrl || typeof uploadUrl !== 'string') {
-      throw new Error('上传URL不能为空');
+    if (!registryUrl || typeof registryUrl !== 'string') {
+      throw new Error('Registry URL不能为空');
     }
 
-    if (!uploadUrl.startsWith('http://') && !uploadUrl.startsWith('https://')) {
-      throw new Error('URL格式错误，应以 http:// 或 https:// 开头');
+    if (!registryUrl.startsWith('http://') && !registryUrl.startsWith('https://')) {
+      throw new Error('Registry URL格式错误，应以 http:// 或 https:// 开头');
     }
 
     if (!auth || typeof auth !== 'string' || !auth.includes(':')) {
       throw new Error('认证信息格式错误，应为 username:password 格式');
+    }
+
+    // 验证registry URL格式
+    try {
+      buildUploadUrlFromRegistry(registryUrl);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Registry URL格式验证失败: ${errorMessage}`);
     }
   }
 
@@ -398,7 +411,7 @@ export class FetchPackageUploader implements PackageUploader {
   /**
    * 处理上传过程中的错误
    */
-  private handleUploadError(error: unknown, filePath?: string, uploadUrl?: string): PackageUploadError {
+  private handleUploadError(error: unknown, filePath?: string, registryUrl?: string): PackageUploadError {
     if (error && typeof error === 'object' && 'type' in error) {
       // 如果已经是PackageUploadError，直接返回
       return error as PackageUploadError;
@@ -407,7 +420,7 @@ export class FetchPackageUploader implements PackageUploader {
     const err = error as Error;
     return this.createUploadError(ErrorType.UPLOAD_ERROR, err.message || '未知上传错误', {
       filePath,
-      uploadUrl,
+      registryUrl,
       originalError: error,
     });
   }
@@ -427,7 +440,7 @@ export class FetchPackageUploader implements PackageUploader {
       // retryable: false, // 不使用重试机制 - 移除此属性，因为接口中不存在
       packageName: (details.fileName as string) || 'unknown',
       filePath: details.filePath as string,
-      uploadUrl: details.uploadUrl as string,
+      uploadUrl: details.registryUrl as string,
       statusCode: details.statusCode as number,
       responseBody: details.responseBody as string,
     };

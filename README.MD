@@ -24,12 +24,12 @@ bun run verify
 > pu.exe --help
 
 Options:
-      --version  Show version number                                                       [boolean]
-  -d, --dir      Directory with packages to publish                   [string] [default: "packages"]
-  -u, --url      Repository URL                                                  [string] [required]
-  -a, --auth     Repository auth (username:password)                             [string] [required]
-  -t, --threads  Concurrent threads                                            [number] [default: 1]
-      --help     Show help                                                                 [boolean]
+      --version   Show version number                                                      [boolean]
+  -d, --dir       Directory with packages to publish                  [string] [default: "packages"]
+  -r, --registry  Repository registry (format: ${baseURL}/repository/{repository}/)      [string] [required]
+  -a, --auth      Repository auth (username:password)                            [string] [required]
+  -t, --threads   Concurrent threads                                           [number] [default: 1]
+      --help      Show help                                                                [boolean]
 ```
 
 ### 新特性说明
@@ -44,14 +44,30 @@ Options:
 
 ```bash
 # 基本用法 - 发布packages目录下的所有.tgz文件
-pu.exe -d packages -u https://nexus.example.com/repository/npm-hosted/ -a username:password
+pu.exe -d packages -r http://localhost:8081/repository/npm/ -a username:password
 
 # 使用多线程并发上传
-pu.exe -d packages -u https://nexus.example.com/repository/npm-hosted/ -a username:password -t 5
+pu.exe -d packages -r https://nexus.example.com/repository/npm-hosted/ -a username:password -t 5
 
 # 发布指定目录及其子目录中的所有包
-pu.exe -d dist -u https://nexus.example.com/repository/npm-hosted/ -a username:password -t 3
+pu.exe -d dist -r https://nexus.example.com/repository/npm-internal/ -a username:password -t 3
 ```
+
+### Registry URL格式说明
+
+Registry URL必须符合以下格式：`${BASEURL}/repository/{repository}/`
+
+**示例：**
+- 输入：`http://localhost:8081/repository/npm/`
+- 解析结果：
+  - `baseURL`: `http://localhost:8081/`
+  - `repository`: `npm`
+  - 上传URL: `http://localhost:8081/service/rest/v1/components?repository=npm`
+
+**支持的格式：**
+- `http://localhost:8081/repository/npm/`
+- `https://nexus.company.com/repository/npm-public/`
+- `https://nexus.company.com:8443/repository/npm-internal/`
 
 ### 工作流程
 
