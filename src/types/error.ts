@@ -79,3 +79,47 @@ export interface PackageUploadError extends PublishError {
   statusCode?: number;
   responseBody?: string;
 }
+
+/**
+ * 错误严重程度枚举
+ */
+export enum ErrorSeverity {
+  /** 低严重程度 - 警告级别 */
+  LOW = 'LOW',
+  /** 中等严重程度 - 错误级别但可恢复 */
+  MEDIUM = 'MEDIUM',
+  /** 高严重程度 - 严重错误，需要立即处理 */
+  HIGH = 'HIGH',
+  /** 关键严重程度 - 系统级错误 */
+  CRITICAL = 'CRITICAL',
+}
+
+/**
+ * 错误分类接口
+ */
+export interface ErrorClassification {
+  /** 错误类型 */
+  type: ErrorType;
+  /** 严重程度 */
+  severity: ErrorSeverity;
+  /** 是否可重试 */
+  retryable: boolean;
+  /** 用户友好的错误描述 */
+  description: string;
+}
+
+/**
+ * 错误统计接口
+ */
+export interface ErrorStatistics {
+  /** 总错误数 */
+  total: number;
+  /** 按类型分组的错误数 */
+  byType: Record<ErrorType, number>;
+  /** 按严重程度分组的错误数 */
+  bySeverity: Record<ErrorSeverity, number>;
+  /** 可重试错误数 */
+  retryable: number;
+  /** 不可重试错误数 */
+  nonRetryable: number;
+}

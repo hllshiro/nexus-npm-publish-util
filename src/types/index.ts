@@ -23,9 +23,25 @@ export type {
 } from './package.js';
 
 // 错误处理相关类型
-export { ErrorType } from './error.js';
+export { ErrorType, ErrorSeverity } from './error.js';
 
-export type { PublishError, PackageCheckError, PackageUploadError, ProgressTracker, ProgressReport } from './error.js';
+export type {
+  PublishError,
+  PackageCheckError,
+  PackageUploadError,
+  ProgressTracker,
+  ProgressReport,
+  ErrorClassification,
+  ErrorStatistics,
+} from './error.js';
 
 // 日志相关类型
-export type { LogLevel, LoggerConfig } from './logger.js';
+export { LogLevel } from './logger.js';
+
+export type {
+  LoggerConfig,
+  LogEntry,
+  StructuredLogEntry,
+  SensitiveDataFilter,
+  ExtendedLoggerConfig,
+} from './logger.js';
