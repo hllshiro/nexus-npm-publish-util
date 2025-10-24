@@ -4,8 +4,8 @@ import type {
   PackageUploadError,
   ErrorClassification,
   ErrorStatistics,
-} from '@/types/index.js';
-import { ErrorType, ErrorSeverity } from '@/types/index.js';
+} from '@/types';
+import { ErrorType, ErrorSeverity } from '@/types';
 import { logger } from './logger.js';
 
 /**

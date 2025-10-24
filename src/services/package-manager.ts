@@ -24,7 +24,7 @@ import type {
   PublishConfig,
   PublishTask,
   TaskExecutionStats,
-} from '@/types/index.js';
+} from '@/types';
 
 /**
  * 包管理器实现类

@@ -11,7 +11,7 @@ import {
   type PackageUploader,
   type UploadConfig,
   type UploadResult,
-} from '@/types/index.js';
+} from '@/types';
 import { fileLogger, logger } from '@/utils/logger.js';
 import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.js';
 
@@ -50,9 +50,6 @@ export class FetchPackageUploader implements PackageUploader {
     const packageName = this.extractPackageNameFromFileName(fileName);
 
     try {
-      // 验证输入参数
-      this.validateInputs(filePath, registryUrl, auth);
-
       // 构建实际的上传URL
       const uploadUrl = buildUploadUrlFromRegistry(registryUrl);
 
@@ -164,27 +161,6 @@ export class FetchPackageUploader implements PackageUploader {
       if (uploadError.statusCode !== undefined) result.statusCode = uploadError.statusCode;
       if (uploadError.responseBody !== undefined) result.responseBody = uploadError.responseBody;
       return result;
-    }
-  }
-
-  /**
-   * 验证输入参数
-   */
-  private validateInputs(filePath: string, registryUrl: string, auth: string): void {
-    if (!filePath || typeof filePath !== 'string') {
-      throw new Error('文件路径不能为空');
-    }
-
-    if (!auth || typeof auth !== 'string' || !auth.includes(':')) {
-      throw new Error('认证信息格式错误，应为 username:password 格式');
-    }
-
-    // 验证registry URL格式
-    try {
-      buildUploadUrlFromRegistry(registryUrl);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Registry URL格式验证失败: ${errorMessage}`);
     }
   }
 

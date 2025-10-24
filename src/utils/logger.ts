@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
 import { dirname, join, extname, basename } from 'path';
-import { LogLevel } from '@/types/index.js';
-import type { LoggerConfig, LogEntry } from '@/types/index.js';
+import { LogLevel } from '@/types';
+import type { LoggerConfig, LogEntry } from '@/types';
 
 /**
  * 类型安全的日志工具类

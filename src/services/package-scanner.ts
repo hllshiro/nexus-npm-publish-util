@@ -1,5 +1,5 @@
 import fg from 'fast-glob';
-import type { PackageScanner } from '@/types/index.js';
+import type { PackageScanner } from '@/types';
 
 /**
  * 基于fast-glob的包扫描器实现

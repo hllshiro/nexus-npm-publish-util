@@ -4,7 +4,7 @@ import {
   type PackageCheckerConfig,
   type PackageCheckError,
   type PackageRegistryResponse,
-} from '@/types/index.js';
+} from '@/types';
 import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser.js';
 
 /**

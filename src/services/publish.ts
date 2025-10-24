@@ -12,7 +12,7 @@
  * - 实时进度跟踪和结构化日志记录
  */
 
-import type { OperationResult, PublishConfig } from '@/types/index.js';
+import type { OperationResult, PublishConfig } from '@/types';
 import { DefaultPackageManager } from './package-manager.js';
 import { logger } from '@/utils/logger.js';
 
