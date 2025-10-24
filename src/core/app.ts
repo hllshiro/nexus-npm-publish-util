@@ -3,11 +3,9 @@
  * 迁移自 main.js 的核心业务逻辑
  */
 
-import fs from 'fs';
-
-import type { CliArgs } from '@/types/config';
+import type { CliArgs, OptimizedPublishConfig } from '@/types/config';
 import { logger } from '@/utils/logger.js';
-import { getPkgListFromService, publish } from '@/services/publish.js';
+import { createPackageManager } from '@/services/package-manager.js';
 
 /**
  * 应用主逻辑类
@@ -16,50 +14,100 @@ export class App {
   private config: CliArgs;
 
   constructor(config: CliArgs) {
-    this.config = config;
+    // 验证必需的配置项
+    this.validateConfig(config);
+
+    // 设置配置，应用默认值
+    this.config = this.applyConfigDefaults(config);
+  }
+
+  /**
+   * 验证配置参数
+   * @param config 配置对象
+   */
+  private validateConfig(config: CliArgs): void {
+    const errors: string[] = [];
+
+    if (!config.publishDir) {
+      errors.push('publishDir 是必需的');
+    }
+
+    if (!config.publishUrl) {
+      errors.push('publishUrl 是必需的');
+    }
+
+    if (!config.publishAuth) {
+      errors.push('publishAuth 是必需的');
+    }
+
+    if (config.threadNumber !== undefined && config.threadNumber <= 0) {
+      errors.push('threadNumber 必须大于0');
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`配置验证失败: ${errors.join(', ')}`);
+    }
+  }
+
+  /**
+   * 应用配置默认值
+   * @param config 原始配置
+   * @returns 应用默认值后的配置
+   */
+  private applyConfigDefaults(config: CliArgs): CliArgs {
+    return {
+      ...config,
+      threadNumber: config.threadNumber || 1, // 默认并发数为1
+    };
   }
 
   /**
    * 发布模式
-   * 注意：此方法将在后续任务中重构为使用新的优化组件
-   * 当前临时移除forcePublish逻辑以修复类型错误
+   * 使用新的优化组件进行包发布
+   * @param configOverrides 可选的配置覆盖参数
    */
-  public async publishMode(): Promise<void> {
+  public async publishMode(configOverrides?: Partial<OptimizedPublishConfig>): Promise<void> {
     logger.info('开始发布');
 
-    // 临时保留旧的全量扫描逻辑，将在后续任务中替换为单包检查
-    logger.info('扫描远程仓库(nexus仓库为单线程模型，获取时间与仓库大小有关)');
-    let servicePkgList: string[] = [];
-    if (this.config.publishUrl) {
-      servicePkgList = await getPkgListFromService(this.config.publishUrl);
-    }
-    logger.info(`扫描结束，共获取到${servicePkgList.length}个包`);
+    try {
+      // 创建优化的发布配置，合并默认值和覆盖参数
+      const publishConfig: OptimizedPublishConfig = {
+        publishDir: this.config.publishDir,
+        publishUrl: this.config.publishUrl,
+        publishAuth: this.config.publishAuth,
+        threadNumber: this.config.threadNumber,
+        // 默认的优化配置
+        scanPattern: '**/*.tgz',
+        requestTimeout: 300000, // 5分钟
+        connectTimeout: 30000, // 30秒
+        skipExistenceCheck: false,
+        enableDetailedLogging: false,
+        // 应用配置覆盖
+        ...configOverrides,
+      };
 
-    logger.info('扫描待发布目录');
-    const list = fs.readdirSync(this.config.publishDir).filter((item) => servicePkgList.indexOf(item) === -1);
+      // 创建包管理器实例
+      const packageManager = createPackageManager(publishConfig);
 
-    if (list.length > 0) {
-      logger.info(`找到${list.length}个待上传的包`);
-      logger.info('开始发布');
-      if (this.config.publishUrl && this.config.publishAuth) {
-        const res = await publish(
-          list,
-          this.config.publishDir,
-          this.config.publishUrl,
-          this.config.publishAuth,
-          this.config.threadNumber
-        );
+      // 执行发布流程，传入配置
+      const result = await packageManager.publishPackages(publishConfig);
 
-        // 回显结果
-        if (res.success > 0) {
-          logger.info(`成功(${res.success})`);
-        }
-        if (res.failed.length > 0) {
-          logger.error(`失败(${res.failed.length})`, res.failed.join('\n'));
-        }
+      // 输出结果统计
+      if (result.success > 0) {
+        logger.info(`成功上传 ${result.success} 个包`);
       }
-    } else {
-      logger.error('未找到待发布的包或全部存在于远端仓库');
+      if (result.failed.length > 0) {
+        logger.error(`失败 ${result.failed.length} 个包:`);
+        result.failed.forEach((error) => logger.error(`  - ${error}`));
+      }
+
+      if (result.success === 0 && result.failed.length === 0) {
+        logger.info('所有包都已存在于远程仓库，无需上传');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('发布流程执行失败', errorMessage);
+      throw error;
     }
   }
 
