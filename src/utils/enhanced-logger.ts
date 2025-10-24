@@ -1,5 +1,5 @@
 import { Logger } from './logger.js';
-import type { ExtendedLoggerConfig, StructuredLogEntry, SensitiveDataFilter } from '../types/logger.js';
+import type { ExtendedLoggerConfig, StructuredLogEntry, SensitiveDataFilter, LoggerConfig } from '../types/logger.js';
 import { LogLevel } from '../types/logger.js';
 import { appendFileSync } from 'fs';
 
@@ -36,12 +36,12 @@ export class EnhancedLogger {
     replacement: '***',
   };
 
-  constructor(config: ExtendedLoggerConfig = {}) {
+  constructor(config: Partial<ExtendedLoggerConfig> = {}) {
     this.config = {
       level: config.level ?? LogLevel.INFO,
       enableConsole: config.enableConsole ?? true,
       enableFile: config.enableFile ?? false,
-      logFile: config.logFile,
+      logFile: config.logFile ?? undefined,
       enableStructuredLogging: config.enableStructuredLogging ?? true,
       enableSensitiveDataFilter: config.enableSensitiveDataFilter ?? true,
       enableDurationTracking: config.enableDurationTracking ?? true,
@@ -49,7 +49,17 @@ export class EnhancedLogger {
       sensitiveDataFilter: config.sensitiveDataFilter ?? EnhancedLogger.DEFAULT_SENSITIVE_FILTER,
     };
 
-    this.baseLogger = new Logger(this.config);
+    const loggerConfig: Partial<LoggerConfig> = {
+      level: this.config.level,
+      enableConsole: this.config.enableConsole,
+      enableFile: this.config.enableFile,
+    };
+
+    if (this.config.logFile) {
+      loggerConfig.logFile = this.config.logFile;
+    }
+
+    this.baseLogger = new Logger(loggerConfig);
   }
 
   /**
@@ -68,12 +78,12 @@ export class EnhancedLogger {
       timestamp: this.formatTimestamp(),
       level: LogLevel[level],
       message: entry.message || '',
-      operation: entry.operation,
-      packageName: entry.packageName,
-      duration: entry.duration,
-      status: entry.status,
-      error: entry.error,
-      metadata: entry.metadata,
+      operation: entry.operation || undefined,
+      packageName: entry.packageName || undefined,
+      duration: entry.duration || undefined,
+      status: entry.status || undefined,
+      error: entry.error || undefined,
+      metadata: entry.metadata || undefined,
       data: entry.data,
     };
 
@@ -106,7 +116,7 @@ export class EnhancedLogger {
     this.logStructured(LogLevel.INFO, {
       message: `开始${operation}`,
       operation,
-      packageName,
+      packageName: packageName || undefined,
       status: 'started',
       metadata,
     });
@@ -126,9 +136,9 @@ export class EnhancedLogger {
     this.logStructured(LogLevel.INFO, {
       message: `完成${operation}${duration ? ` (耗时: ${duration}ms)` : ''}`,
       operation,
-      packageName,
+      packageName: packageName || undefined,
       status: 'completed',
-      duration,
+      duration: duration || undefined,
       metadata,
     });
   }
@@ -148,9 +158,9 @@ export class EnhancedLogger {
     this.logStructured(LogLevel.ERROR, {
       message: `${operation}失败: ${error}${duration ? ` (耗时: ${duration}ms)` : ''}`,
       operation,
-      packageName,
+      packageName: packageName || undefined,
       status: 'failed',
-      duration,
+      duration: duration || undefined,
       error,
       metadata,
     });
@@ -171,7 +181,7 @@ export class EnhancedLogger {
     this.logStructured(LogLevel.INFO, {
       message: `跳过${operation}: ${reason}`,
       operation,
-      packageName,
+      packageName: packageName || undefined,
       status: 'skipped',
       metadata: { ...metadata, skipReason: reason },
     });
@@ -186,7 +196,7 @@ export class EnhancedLogger {
     this.logStructured(LogLevel.INFO, {
       message: `进度: ${current}/${total} (${percentage}%) - ${operation}`,
       operation: 'progress',
-      packageName,
+      packageName: packageName || undefined,
       metadata: {
         current,
         total,

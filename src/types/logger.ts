@@ -33,17 +33,17 @@ export interface LogEntry {
  */
 export interface StructuredLogEntry extends LogEntry {
   /** 操作类型 */
-  operation?: string;
+  operation?: string | undefined;
   /** 包名 */
-  packageName?: string;
+  packageName?: string | undefined;
   /** 操作持续时间（毫秒） */
-  duration?: number;
+  duration?: number | undefined;
   /** 操作状态 */
-  status?: 'started' | 'completed' | 'failed' | 'skipped';
+  status?: 'started' | 'completed' | 'failed' | 'skipped' | undefined;
   /** 错误信息 */
-  error?: string;
+  error?: string | undefined;
   /** 额外的元数据 */
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -61,7 +61,9 @@ export interface SensitiveDataFilter {
 /**
  * 扩展的日志配置接口
  */
-export interface ExtendedLoggerConfig extends LoggerConfig {
+export interface ExtendedLoggerConfig extends Omit<LoggerConfig, 'logFile'> {
+  /** 日志文件路径（可选） */
+  logFile?: string | undefined;
   /** 是否启用结构化日志 */
   enableStructuredLogging?: boolean;
   /** 是否启用敏感信息过滤 */

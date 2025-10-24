@@ -247,3 +247,7 @@ export const fileLogger = new Logger({
   enableFile: true,
   logFile: 'logs/app.log',
 });
+
+// 注意：为避免循环依赖，progress-logger和legacy-logger-adapter需要直接导入
+// export { progressLogger, simpleProgressLogger } from './progress-logger.js';
+// export { legacyLogger, simpleLegacyLogger, createLegacyLoggerAdapter } from './legacy-logger-adapter.js';

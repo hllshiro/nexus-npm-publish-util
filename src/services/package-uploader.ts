@@ -424,7 +424,7 @@ export class FetchPackageUploader implements PackageUploader {
       type,
       message,
       details,
-      retryable: false, // 不使用重试机制
+      // retryable: false, // 不使用重试机制 - 移除此属性，因为接口中不存在
       packageName: (details.fileName as string) || 'unknown',
       filePath: details.filePath as string,
       uploadUrl: details.uploadUrl as string,
