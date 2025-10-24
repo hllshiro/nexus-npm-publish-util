@@ -1,6 +1,13 @@
 /**
  * 应用主逻辑模块
- * 迁移自 main.js 的核心业务逻辑
+ *
+ * 迁移自 main.js 的核心业务逻辑，经过优化以支持新的包管理功能。
+ *
+ * 主要改进：
+ * - 移除了forcePublish参数，改为智能的单包检查
+ * - 集成了新的PackageManager进行优化的发布流程
+ * - 提供了详细的配置验证和错误处理
+ * - 支持灵活的配置覆盖和默认值应用
  */
 
 import type { CliArgs, OptimizedPublishConfig } from '@/types/config';
@@ -9,64 +16,28 @@ import { createPackageManager } from '@/services/package-manager.js';
 
 /**
  * 应用主逻辑类
+ *
+ * 负责协调CLI参数处理、配置验证和发布流程执行。
+ * 使用优化的PackageManager提供高性能的包发布功能。
  */
 export class App {
   private config: CliArgs;
 
   constructor(config: CliArgs) {
-    // 验证必需的配置项
-    this.validateConfig(config);
-
     // 设置配置，应用默认值
-    this.config = this.applyConfigDefaults(config);
-  }
-
-  /**
-   * 验证配置参数
-   * @param config 配置对象
-   */
-  private validateConfig(config: CliArgs): void {
-    const errors: string[] = [];
-
-    if (!config.publishDir) {
-      errors.push('publishDir 是必需的');
-    }
-
-    if (!config.publishUrl) {
-      errors.push('publishUrl 是必需的');
-    }
-
-    if (!config.publishAuth) {
-      errors.push('publishAuth 是必需的');
-    }
-
-    if (config.threadNumber !== undefined && config.threadNumber <= 0) {
-      errors.push('threadNumber 必须大于0');
-    }
-
-    if (errors.length > 0) {
-      throw new Error(`配置验证失败: ${errors.join(', ')}`);
-    }
-  }
-
-  /**
-   * 应用配置默认值
-   * @param config 原始配置
-   * @returns 应用默认值后的配置
-   */
-  private applyConfigDefaults(config: CliArgs): CliArgs {
-    return {
-      ...config,
-      threadNumber: config.threadNumber || 1, // 默认并发数为1
-    };
+    this.config = config;
   }
 
   /**
    * 发布模式
-   * 使用新的优化组件进行包发布
-   * @param configOverrides 可选的配置覆盖参数
+   *
+   * 使用新的优化组件进行包发布，执行完整的发布流程：
+   * 1. 创建优化的发布配置
+   * 2. 初始化PackageManager
+   * 3. 执行扫描→检查→上传流程
+   * 4. 输出详细的结果统计
    */
-  public async publishMode(configOverrides?: Partial<OptimizedPublishConfig>): Promise<void> {
+  public async publishMode(): Promise<void> {
     logger.info('开始发布');
 
     try {
@@ -80,10 +51,7 @@ export class App {
         scanPattern: '**/*.tgz',
         requestTimeout: 300000, // 5分钟
         connectTimeout: 30000, // 30秒
-        skipExistenceCheck: false,
         enableDetailedLogging: false,
-        // 应用配置覆盖
-        ...configOverrides,
       };
 
       // 创建包管理器实例

@@ -42,8 +42,6 @@ export interface PackageManagerConfig {
   requestTimeout?: number;
   /** 连接超时时间（毫秒） */
   connectTimeout?: number;
-  /** 是否跳过包存在性检查，直接上传 */
-  skipExistenceCheck?: boolean;
   /** 是否启用详细日志记录 */
   enableDetailedLogging?: boolean;
   /** 最大并发数，默认使用threadNumber */
@@ -97,7 +95,6 @@ export class DefaultPackageManager implements PackageManager {
       scanPattern: config.scanPattern ?? '**/*.tgz',
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
       connectTimeout: config.connectTimeout ?? 30000, // 30秒
-      skipExistenceCheck: config.skipExistenceCheck ?? false,
       enableDetailedLogging: config.enableDetailedLogging ?? false,
       maxConcurrency: config.maxConcurrency ?? config.threadNumber,
     };
@@ -121,7 +118,6 @@ export class DefaultPackageManager implements PackageManager {
       publishDir: this.config.publishDir,
       publishUrl: this.config.publishUrl,
       maxConcurrency: this.config.maxConcurrency,
-      skipExistenceCheck: this.config.skipExistenceCheck,
     });
   }
 
@@ -138,7 +134,6 @@ export class DefaultPackageManager implements PackageManager {
       publishDir: effectiveConfig.publishDir,
       publishUrl: effectiveConfig.publishUrl,
       maxConcurrency: effectiveConfig.maxConcurrency,
-      skipExistenceCheck: effectiveConfig.skipExistenceCheck,
     });
 
     try {
@@ -259,25 +254,6 @@ export class DefaultPackageManager implements PackageManager {
     config: Required<PackageManagerConfig>
   ): Promise<PublishTask[]> {
     const publishTasks: PublishTask[] = [];
-
-    if (config.skipExistenceCheck) {
-      enhancedLogger.info('跳过包存在性检查，所有包将被上传');
-
-      // 直接创建上传任务
-      for (const packageInfo of packageInfoList) {
-        publishTasks.push({
-          packageInfo,
-          needsUpload: true,
-        });
-
-        this.progressTracker.updateProgress(packageInfo.packageName, 'checking', {
-          needsUpload: true,
-          statusDetail: '跳过存在性检查',
-        });
-      }
-
-      return publishTasks;
-    }
 
     enhancedLogger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
 

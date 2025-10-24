@@ -27,7 +27,6 @@ export class FastGlobPackageScanner implements PackageScanner {
           // 忽略模式
           '**/node_modules/**', // 忽略node_modules目录
           '**/.git/**', // 忽略git目录
-          '**/.*/**', // 忽略隐藏目录
           '**/temp/**', // 忽略临时目录
           '**/tmp/**', // 忽略临时目录
         ],
