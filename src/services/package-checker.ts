@@ -1,17 +1,11 @@
-import type { PackageChecker, PackageRegistryResponse } from '../types/package.js';
-import type { PackageCheckError } from '../types/error.js';
-import { ErrorType } from '../types/error.js';
-import { parseRegistryUrl } from '@/utils/registry-url-parser.js';
-
-/**
- * 包检查配置接口
- */
-export interface PackageCheckerConfig {
-  /** 连接超时时间（毫秒），默认10秒 */
-  connectTimeout?: number;
-  /** 请求超时时间（毫秒），默认30秒 */
-  requestTimeout?: number;
-}
+import {
+  ErrorType,
+  type PackageChecker,
+  type PackageCheckerConfig,
+  type PackageCheckError,
+  type PackageRegistryResponse,
+} from '@/types/index.js';
+import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser.js';
 
 /**
  * 基于npm registry的包检查器实现
@@ -37,11 +31,10 @@ export class RegistryPackageChecker implements PackageChecker {
   async checkPackageExists(packageName: string, version: string, registryUrl: string): Promise<boolean> {
     try {
       // 解析registry URL，构建检查URL
-      const { baseUrl, repository } = parseRegistryUrl(registryUrl);
       const encodedName = encodeURIComponent(packageName);
 
       // 构建检查URL：${BASEURL}/repository/{repository}/${packageName}
-      const checkUrl = `${baseUrl}repository/${repository}/${encodedName}`;
+      const checkUrl = `${ensureUrlEndsWithSlash(registryUrl)}${encodedName}`;
 
       const response = await this.fetchWithTimeout(checkUrl);
 

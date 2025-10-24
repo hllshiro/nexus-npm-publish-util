@@ -3,100 +3,16 @@
  * 提供实时进度更新和详细的进度报告
  */
 
-import type { ProgressTracker, ProgressReport } from '@/types/error.js';
-import type { PackageInfo } from '@/types/package.js';
+import {
+  PackageStatus,
+  type DetailedProgressReport,
+  type PackageInfo,
+  type PackageProcessInfo,
+  type PhaseStatistics,
+  type ProgressReport,
+  type ProgressTracker,
+} from '@/types';
 import { logger } from '@/utils/logger.js';
-
-/**
- * 包处理状态枚举
- */
-export enum PackageStatus {
-  /** 待处理 */
-  PENDING = 'pending',
-  /** 扫描中 */
-  SCANNING = 'scanning',
-  /** 检查中 */
-  CHECKING = 'checking',
-  /** 上传中 */
-  UPLOADING = 'uploading',
-  /** 已完成 */
-  COMPLETED = 'completed',
-  /** 已失败 */
-  FAILED = 'failed',
-  /** 已跳过 */
-  SKIPPED = 'skipped',
-}
-
-/**
- * 包处理详细信息接口
- */
-export interface PackageProcessInfo {
-  /** 包信息 */
-  packageInfo: PackageInfo;
-  /** 当前状态 */
-  status: PackageStatus;
-  /** 详细状态描述 */
-  statusDetail?: string;
-  /** 开始时间 */
-  startTime?: Date;
-  /** 完成时间 */
-  endTime?: Date;
-  /** 错误信息 */
-  error?: string | undefined;
-  /** 处理阶段时间记录 */
-  phaseTimings: {
-    scanStart?: Date;
-    scanEnd?: Date;
-    checkStart?: Date;
-    checkEnd?: Date;
-    uploadStart?: Date;
-    uploadEnd?: Date;
-  };
-  /** 是否需要上传 */
-  needsUpload?: boolean | undefined;
-  /** HTTP状态码（上传时） */
-  statusCode?: number | undefined;
-}
-
-/**
- * 阶段统计信息接口
- */
-export interface PhaseStatistics {
-  /** 阶段名称 */
-  phase: string;
-  /** 已处理数量 */
-  processed: number;
-  /** 成功数量 */
-  successful: number;
-  /** 失败数量 */
-  failed: number;
-  /** 跳过数量 */
-  skipped: number;
-  /** 平均处理时间（毫秒） */
-  averageTime: number;
-  /** 总处理时间（毫秒） */
-  totalTime: number;
-}
-
-/**
- * 详细进度报告接口
- */
-export interface DetailedProgressReport extends ProgressReport {
-  /** 各阶段统计 */
-  phaseStatistics: PhaseStatistics[];
-  /** 处理速率（包/秒） */
-  processingRate: number;
-  /** 预估剩余时间（秒） */
-  estimatedRemainingTime: number;
-  /** 总耗时（毫秒） */
-  totalElapsedTime: number;
-  /** 错误列表 */
-  errors: Array<{
-    packageName: string;
-    error: string;
-    phase: string;
-  }>;
-}
 
 /**
  * 通用进度跟踪器实现

@@ -3,33 +3,13 @@
  * 用于解析CLI中输入的registry参数，提取baseURL和repository信息
  */
 
-/**
- * Registry URL解析结果接口
- */
-export interface RegistryUrlInfo {
-  /** 基础URL，例如: http://localhost:8081/ */
-  baseUrl: string;
-  /** 仓库名称，例如: npm */
-  repository: string;
-  /** 完整的registry URL */
-  fullUrl: string;
-}
+import type { RegistryUrlInfo } from '@/types';
 
 /**
  * 解析registry URL，提取baseURL和repository参数
  *
  * @param registryUrl - 输入的registry URL，格式应为: ${BASEURL}/repository/{repository}/
  * @returns 解析结果
- *
- * @example
- * ```typescript
- * const result = parseRegistryUrl('http://localhost:8081/repository/npm/');
- * // result = {
- * //   baseUrl: 'http://localhost:8081/',
- * //   repository: 'npm',
- * //   fullUrl: 'http://localhost:8081/repository/npm/'
- * // }
- * ```
  */
 export function parseRegistryUrl(registryUrl: string): RegistryUrlInfo {
   if (!registryUrl || typeof registryUrl !== 'string') {
@@ -51,7 +31,7 @@ export function parseRegistryUrl(registryUrl: string): RegistryUrlInfo {
   if (!match) {
     throw new Error(
       `Registry URL格式错误，应符合格式: \${BASEURL}/repository/{repository}/\n` +
-        `例如: http://localhost:8081/repository/npm/\n` +
+        `例如: http://localhost/repository/npm/\n` +
         `实际输入: ${registryUrl}`
     );
   }
@@ -77,12 +57,6 @@ export function parseRegistryUrl(registryUrl: string): RegistryUrlInfo {
  * @param baseUrl - 基础URL，例如: http://localhost:8081/
  * @param repository - 仓库名称，例如: npm
  * @returns 上传URL，格式为: ${BASEURL}/service/rest/v1/components?repository=${repository}
- *
- * @example
- * ```typescript
- * const uploadUrl = buildUploadUrl('http://localhost:8081/', 'npm');
- * // uploadUrl = 'http://localhost:8081/service/rest/v1/components?repository=npm'
- * ```
  */
 export function buildUploadUrl(baseUrl: string, repository: string): string {
   if (!baseUrl || !repository) {
@@ -100,14 +74,22 @@ export function buildUploadUrl(baseUrl: string, repository: string): string {
  *
  * @param registryUrl - Registry URL
  * @returns 上传URL
- *
- * @example
- * ```typescript
- * const uploadUrl = buildUploadUrlFromRegistry('http://localhost:8081/repository/npm/');
- * // uploadUrl = 'http://localhost:8081/service/rest/v1/components?repository=npm'
- * ```
  */
 export function buildUploadUrlFromRegistry(registryUrl: string): string {
   const { baseUrl, repository } = parseRegistryUrl(registryUrl);
   return buildUploadUrl(baseUrl, repository);
+}
+
+/**
+ * 确保URL以斜杠结尾
+ *
+ * @param url - 输入的URL
+ * @returns 以斜杠结尾的URL
+ */
+export function ensureUrlEndsWithSlash(url: string): string {
+  if (!url || typeof url !== 'string') {
+    throw new Error('URL不能为空');
+  }
+
+  return url.endsWith('/') ? url : `${url}/`;
 }

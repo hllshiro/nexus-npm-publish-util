@@ -5,12 +5,15 @@
 
 import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { PackageUploader, UploadResult } from '@/types/package.js';
-import type { PackageUploadError } from '@/types/error.js';
-import { ErrorType } from '@/types/error.js';
+import {
+  ErrorType,
+  type PackageUploadError,
+  type PackageUploader,
+  type UploadConfig,
+  type UploadResult,
+} from '@/types/index.js';
 import { fileLogger, logger } from '@/utils/logger.js';
 import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.js';
-import type { UploadProgressTracker } from './upload-progress-tracker.js';
 
 // 定义错误接口
 interface ErrnoException extends Error {
@@ -21,39 +24,16 @@ interface ErrnoException extends Error {
 }
 
 /**
- * 上传配置接口
- */
-export interface UploadConfig {
-  /** HTTP请求超时时间（毫秒），默认300秒 */
-  requestTimeout?: number;
-  /** 连接超时时间（毫秒），默认30秒 */
-  connectTimeout?: number;
-  /** 是否记录详细的请求响应日志 */
-  enableDetailedLogging?: boolean;
-  /** 用户代理字符串 */
-  userAgent?: string;
-  /** 进度跟踪器实例（可选） */
-  progressTracker?: UploadProgressTracker;
-}
-
-/**
  * 基于fetch API的包上传器实现
  */
 export class FetchPackageUploader implements PackageUploader {
-  private config: {
-    requestTimeout: number;
-    connectTimeout: number;
-    enableDetailedLogging: boolean;
-    userAgent: string;
-    progressTracker?: UploadProgressTracker;
-  };
+  private config: UploadConfig;
 
   constructor(config: UploadConfig = {}) {
     this.config = {
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
       connectTimeout: config.connectTimeout ?? 30000, // 30秒
       enableDetailedLogging: config.enableDetailedLogging ?? false,
-      userAgent: config.userAgent ?? 'publish-util/1.0.0',
       ...(config.progressTracker && { progressTracker: config.progressTracker }),
     };
   }
@@ -95,10 +75,11 @@ export class FetchPackageUploader implements PackageUploader {
 
       // 更新进度跟踪器 - 开始上传
       if (this.config.progressTracker) {
-        this.config.progressTracker.setPackageFileSize(packageName, fileSize);
+        // 注意：如果使用 UploadProgressTracker，可以通过其 setPackageFileSize 方法设置文件大小
+        // 这里为了类型安全，我们跳过这个可选功能
         this.config.progressTracker.updateProgress(packageName, 'uploading', {
-          filePath,
-          fileSize,
+          needsUpload: true,
+          statusDetail: `开始上传文件: ${filePath}`,
         });
       }
 
@@ -129,9 +110,12 @@ export class FetchPackageUploader implements PackageUploader {
       // 更新进度跟踪器 - 上传完成
       if (this.config.progressTracker) {
         const status = result.success ? 'completed' : 'failed';
-        const updateInfo: Partial<import('./upload-progress-tracker.js').PackageUploadInfo> = {};
-        if (result.statusCode !== undefined) updateInfo.statusCode = result.statusCode;
-        if (result.error !== undefined) updateInfo.error = result.error;
+        const updateInfo: { error?: string; statusCode?: number; needsUpload?: boolean; statusDetail?: string } = {
+          statusDetail: result.success ? '上传成功' : `上传失败: ${result.error}`,
+        };
+        if (result.error) updateInfo.error = result.error;
+        if (result.statusCode) updateInfo.statusCode = result.statusCode;
+
         this.config.progressTracker.updateProgress(packageName, status, updateInfo);
       }
 
@@ -154,11 +138,14 @@ export class FetchPackageUploader implements PackageUploader {
 
       // 更新进度跟踪器 - 上传失败
       if (this.config.progressTracker) {
-        const updateInfo: Partial<import('./upload-progress-tracker.js').PackageUploadInfo> = {
-          error: uploadError.message,
-        };
-        if (uploadError.statusCode !== undefined) updateInfo.statusCode = uploadError.statusCode;
-        this.config.progressTracker.updateProgress(packageName, 'failed', updateInfo);
+        const failedUpdateInfo: { error?: string; statusCode?: number; needsUpload?: boolean; statusDetail?: string } =
+          {
+            error: uploadError.message,
+            statusDetail: `上传失败: ${uploadError.message}`,
+          };
+        if (uploadError.statusCode) failedUpdateInfo.statusCode = uploadError.statusCode;
+
+        this.config.progressTracker.updateProgress(packageName, 'failed', failedUpdateInfo);
       }
 
       // 记录错误信息
@@ -186,14 +173,6 @@ export class FetchPackageUploader implements PackageUploader {
   private validateInputs(filePath: string, registryUrl: string, auth: string): void {
     if (!filePath || typeof filePath !== 'string') {
       throw new Error('文件路径不能为空');
-    }
-
-    if (!registryUrl || typeof registryUrl !== 'string') {
-      throw new Error('Registry URL不能为空');
-    }
-
-    if (!registryUrl.startsWith('http://') && !registryUrl.startsWith('https://')) {
-      throw new Error('Registry URL格式错误，应以 http:// 或 https:// 开头');
     }
 
     if (!auth || typeof auth !== 'string' || !auth.includes(':')) {
@@ -282,7 +261,6 @@ export class FetchPackageUploader implements PackageUploader {
         headers: {
           Authorization: authHeader,
           Accept: 'application/json',
-          'User-Agent': this.config.userAgent,
         },
         body: formData,
         signal: controller.signal,

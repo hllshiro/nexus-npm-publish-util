@@ -2,43 +2,8 @@
  * 上传进度跟踪器 - 提供详细的上传状态信息和日志记录
  */
 
-import type { ProgressTracker, ProgressReport } from '@/types/error.js';
+import { UploadStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
 import { fileLogger, logger } from '@/utils/logger.js';
-
-/**
- * 包上传状态枚举
- */
-export enum UploadStatus {
-  PENDING = 'pending',
-  UPLOADING = 'uploading',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  SKIPPED = 'skipped',
-}
-
-/**
- * 包上传信息接口
- */
-export interface PackageUploadInfo {
-  /** 包名 */
-  packageName: string;
-  /** 文件路径 */
-  filePath: string;
-  /** 当前状态 */
-  status: UploadStatus;
-  /** 详细状态（用于进度计算） */
-  detailedStatus?: string;
-  /** 开始时间 */
-  startTime?: Date;
-  /** 完成时间 */
-  endTime?: Date;
-  /** 错误信息 */
-  error?: string;
-  /** 上传大小（字节） */
-  fileSize?: number;
-  /** HTTP状态码 */
-  statusCode?: number;
-}
 
 /**
  * 上传进度跟踪器实现

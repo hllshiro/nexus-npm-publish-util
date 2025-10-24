@@ -10,7 +10,7 @@
  * - 支持灵活的配置覆盖和默认值应用
  */
 
-import type { CliArgs, PublishConfig } from '@/types/config';
+import type { CliArgs, PublishConfig } from '@/types';
 import { logger } from '@/utils/logger.js';
 import { createPackageManager } from '@/services/package-manager.js';
 

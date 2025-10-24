@@ -3,18 +3,7 @@
  * 实现并发控制和任务调度，集成错误处理和进度跟踪
  */
 
-import type {
-  PackageManager,
-  PackageInfo,
-  PublishTask,
-  PackageScanner,
-  PackageChecker,
-  PackageUploader,
-  PackageInfoExtractor,
-} from '@/types/package.js';
-import type { PublishConfig, OperationResult } from '@/types/config.js';
-import type { GeneralProgressTracker, DetailedProgressReport } from './progress-tracker.js';
-import type { ProgressReport } from '@/types/error.js';
+import type { GeneralProgressTracker } from './progress-tracker.js';
 import { FastGlobPackageScanner } from './package-scanner.js';
 import { RegistryPackageChecker } from './package-checker.js';
 import { FetchPackageUploader } from './package-uploader.js';
@@ -22,32 +11,20 @@ import { TarPackageInfoExtractor } from './package-info-extractor.js';
 import { createProgressTracker } from './progress-tracker.js';
 import { logger } from '@/utils/logger.js';
 import { asyncFn } from '@/utils/task.js';
-
-/**
- * 任务执行统计接口
- */
-export interface TaskExecutionStats {
-  /** 总包数 */
-  totalPackages: number;
-  /** 扫描到的包数 */
-  scannedPackages: number;
-  /** 需要上传的包数 */
-  packagesNeedingUpload: number;
-  /** 成功上传的包数 */
-  successfulUploads: number;
-  /** 失败的包数 */
-  failedPackages: number;
-  /** 跳过的包数（已存在） */
-  skippedPackages: number;
-  /** 总耗时（毫秒） */
-  totalElapsedTime: number;
-  /** 各阶段耗时 */
-  phaseTimings: {
-    scanning: number;
-    checking: number;
-    uploading: number;
-  };
-}
+import type {
+  DetailedProgressReport,
+  OperationResult,
+  PackageChecker,
+  PackageInfo,
+  PackageInfoExtractor,
+  PackageManager,
+  PackageScanner,
+  PackageUploader,
+  ProgressReport,
+  PublishConfig,
+  PublishTask,
+  TaskExecutionStats,
+} from '@/types/index.js';
 
 /**
  * 包管理器实现类
@@ -83,7 +60,6 @@ export class DefaultPackageManager implements PackageManager {
       requestTimeout: this.config.requestTimeout,
       connectTimeout: this.config.connectTimeout,
       enableDetailedLogging: this.config.enableDetailedLogging,
-      userAgent: 'publish-util/1.0.0',
     });
     this.extractor = new TarPackageInfoExtractor();
     this.progressTracker = createProgressTracker(this.config.enableDetailedLogging);
