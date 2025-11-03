@@ -103,7 +103,7 @@ export class DefaultPackageManager implements PackageManager {
 
       // 更新所有包的扫描完成状态
       for (const packageInfo of packageInfoList) {
-        this.progressTracker.updateProgress(packageInfo.filePath, 'scanning', {
+        this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.SCANNING, {
           statusDetail: '包信息提取完成',
         });
       }
@@ -229,7 +229,9 @@ export class DefaultPackageManager implements PackageManager {
     await asyncFn(
       packageInfoList,
       async (packageInfo: PackageInfo) => {
-        this.progressTracker.updateProgress(packageInfo.filePath, 'checking', { statusDetail: '检查包是否已存在' });
+        this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.CHECKING, {
+          statusDetail: '检查包是否已存在',
+        });
 
         try {
           const exists = await this.checker.checkPackageExists(
@@ -247,13 +249,13 @@ export class DefaultPackageManager implements PackageManager {
           // 更新进度跟踪器状态
           if (exists) {
             // 包已存在，标记为跳过 - 使用特殊的skipped状态
-            this.progressTracker.updateProgress(packageInfo.filePath, 'skipped', {
+            this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.SKIPPED, {
               needsUpload: false,
               statusDetail: '包已存在，跳过上传',
             });
           } else {
             // 包不存在，需要上传，但此时还未开始上传，保持checking状态
-            this.progressTracker.updateProgress(packageInfo.filePath, 'checking', {
+            this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.CHECKING, {
               needsUpload: true,
               statusDetail: '包不存在，需要上传',
             });
@@ -272,7 +274,7 @@ export class DefaultPackageManager implements PackageManager {
             needsUpload: true,
           });
 
-          this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
+          this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.FAILED, {
             error: `检查存在性失败: ${errorMessage}`,
             needsUpload: true,
           });
@@ -334,7 +336,9 @@ export class DefaultPackageManager implements PackageManager {
       async (task: PublishTask) => {
         const { packageInfo } = task;
 
-        this.progressTracker.updateProgress(packageInfo.filePath, 'uploading', { statusDetail: '正在上传包文件' });
+        this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.UPLOADING, {
+          statusDetail: '正在上传包文件',
+        });
 
         try {
           const uploadResult = await this.uploader.uploadPackage(
@@ -347,7 +351,7 @@ export class DefaultPackageManager implements PackageManager {
 
           if (uploadResult.success) {
             result.success++;
-            this.progressTracker.updateProgress(packageInfo.filePath, 'completed', {
+            this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.COMPLETED, {
               statusDetail: '上传成功',
               ...(uploadResult.statusCode !== undefined && { statusCode: uploadResult.statusCode }),
             });
@@ -363,7 +367,7 @@ export class DefaultPackageManager implements PackageManager {
             const errorMsg = `上传失败 ${packageInfo.packageName} - ${uploadResult.error}`;
             result.failed.push(errorMsg);
 
-            this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
+            this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.FAILED, {
               ...(uploadResult.error && { error: uploadResult.error }),
               ...(uploadResult.statusCode !== undefined && { statusCode: uploadResult.statusCode }),
               statusDetail: '上传失败',
@@ -380,7 +384,7 @@ export class DefaultPackageManager implements PackageManager {
           const errorMsg = `上传异常 ${packageInfo.packageName} - ${errorMessage}`;
           result.failed.push(errorMsg);
 
-          this.progressTracker.updateProgress(packageInfo.filePath, 'failed', {
+          this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.FAILED, {
             error: errorMessage,
             statusDetail: '上传异常',
           });

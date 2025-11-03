@@ -64,7 +64,7 @@ export interface ProgressTracker {
 
   updateProgress(
     filePath: string,
-    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed' | 'skipped',
+    status: PackageStatus,
     additionalInfo?: {
       error?: string;
       statusCode?: number;
@@ -191,13 +191,6 @@ export interface LogEntry {
   level: string;
   message: string;
   data?: unknown;
-}
-
-/**
- * 包依赖信息
- */
-export interface PackageDependency {
-  [packageName: string]: string;
 }
 
 /**
@@ -349,66 +342,34 @@ export interface TaskExecutionStats {
 }
 
 /**
- * 包检查配置接口
+ * 基础网络配置接口
  */
-export interface PackageCheckerConfig {
-  /** 连接超时时间（毫秒），默认10秒 */
+export interface BaseNetworkConfig {
+  /** 连接超时时间（毫秒） */
   connectTimeout?: number;
-  /** 请求超时时间（毫秒），默认30秒 */
+  /** 请求超时时间（毫秒） */
   requestTimeout?: number;
 }
+
+/**
+ * 包检查配置接口（继承基础网络配置）
+ * 默认值：connectTimeout=10秒，requestTimeout=30秒
+ */
+export type PackageCheckerConfig = BaseNetworkConfig;
 
 /**
  * 上传配置接口
  */
-export interface UploadConfig {
-  /** HTTP请求超时时间（毫秒），默认300秒 */
-  requestTimeout?: number;
-  /** 连接超时时间（毫秒），默认30秒 */
-  connectTimeout?: number;
+export interface UploadConfig extends BaseNetworkConfig {
   /** 是否记录详细的请求响应日志 */
   enableDetailedLogging?: boolean;
   /** 进度跟踪器实例（可选） */
   progressTracker?: ProgressTracker;
+  // 继承基础网络配置，默认值：connectTimeout=30秒，requestTimeout=300秒
 }
 
 /**
- * 包上传状态枚举
- */
-export enum UploadStatus {
-  PENDING = 'pending',
-  UPLOADING = 'uploading',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  SKIPPED = 'skipped',
-}
-
-/**
- * 包上传信息接口
- */
-export interface PackageUploadInfo {
-  /** 包名 */
-  packageName: string;
-  /** 文件路径 */
-  filePath: string;
-  /** 当前状态 */
-  status: UploadStatus;
-  /** 详细状态（用于进度计算） */
-  detailedStatus?: string;
-  /** 开始时间 */
-  startTime?: Date;
-  /** 完成时间 */
-  endTime?: Date;
-  /** 错误信息 */
-  error?: string;
-  /** 上传大小（字节） */
-  fileSize?: number;
-  /** HTTP状态码 */
-  statusCode?: number;
-}
-
-/**
- * 包处理状态枚举
+ * 包处理状态枚举（统一的状态定义）
  */
 export enum PackageStatus {
   /** 待处理 */
@@ -428,11 +389,9 @@ export enum PackageStatus {
 }
 
 /**
- * 包处理详细信息接口
+ * 基础包处理信息接口
  */
-export interface PackageProcessInfo {
-  /** 包信息 */
-  packageInfo: PackageInfo;
+export interface BasePackageProcessInfo {
   /** 当前状态 */
   status: PackageStatus;
   /** 详细状态描述 */
@@ -442,7 +401,29 @@ export interface PackageProcessInfo {
   /** 完成时间 */
   endTime?: Date;
   /** 错误信息 */
-  error?: string | undefined;
+  error?: string;
+  /** HTTP状态码 */
+  statusCode?: number;
+}
+
+/**
+ * 包上传信息接口
+ */
+export interface PackageUploadInfo extends BasePackageProcessInfo {
+  /** 包名 */
+  packageName: string;
+  /** 文件路径 */
+  filePath: string;
+  /** 上传大小（字节） */
+  fileSize?: number;
+}
+
+/**
+ * 包处理详细信息接口
+ */
+export interface PackageProcessInfo extends BasePackageProcessInfo {
+  /** 包信息 */
+  packageInfo: PackageInfo;
   /** 处理阶段时间记录 */
   phaseTimings: {
     scanStart?: Date;
@@ -453,9 +434,7 @@ export interface PackageProcessInfo {
     uploadEnd?: Date;
   };
   /** 是否需要上传 */
-  needsUpload?: boolean | undefined;
-  /** HTTP状态码（上传时） */
-  statusCode?: number | undefined;
+  needsUpload?: boolean;
 }
 
 /**

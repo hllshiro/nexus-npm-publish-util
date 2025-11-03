@@ -7,6 +7,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 import {
   ErrorType,
+  PackageStatus,
   type PackageUploadError,
   type PackageUploader,
   type UploadConfig,
@@ -74,7 +75,7 @@ export class FetchPackageUploader implements PackageUploader {
       if (this.config.progressTracker) {
         // 注意：如果使用 UploadProgressTracker，可以通过其 setPackageFileSize 方法设置文件大小
         // 这里为了类型安全，我们跳过这个可选功能
-        this.config.progressTracker.updateProgress(filePath, 'uploading', {
+        this.config.progressTracker.updateProgress(filePath, PackageStatus.UPLOADING, {
           needsUpload: true,
           statusDetail: `开始上传文件: ${filePath}`,
         });
@@ -106,7 +107,7 @@ export class FetchPackageUploader implements PackageUploader {
 
       // 更新进度跟踪器 - 上传完成
       if (this.config.progressTracker) {
-        const status = result.success ? 'completed' : 'failed';
+        const status = result.success ? PackageStatus.COMPLETED : PackageStatus.FAILED;
         const updateInfo: { error?: string; statusCode?: number; needsUpload?: boolean; statusDetail?: string } = {
           statusDetail: result.success ? '上传成功' : `上传失败: ${result.error}`,
         };
@@ -142,7 +143,7 @@ export class FetchPackageUploader implements PackageUploader {
           };
         if (uploadError.statusCode) failedUpdateInfo.statusCode = uploadError.statusCode;
 
-        this.config.progressTracker.updateProgress(filePath, 'failed', failedUpdateInfo);
+        this.config.progressTracker.updateProgress(filePath, PackageStatus.FAILED, failedUpdateInfo);
       }
 
       // 记录错误信息

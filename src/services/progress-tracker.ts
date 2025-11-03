@@ -69,7 +69,7 @@ export class GeneralProgressTracker implements ProgressTracker {
    */
   updateProgress(
     filePath: string,
-    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed' | 'skipped',
+    status: PackageStatus,
     additionalInfo?: {
       error?: string;
       statusCode?: number;
@@ -77,7 +77,7 @@ export class GeneralProgressTracker implements ProgressTracker {
       statusDetail?: string;
     }
   ): void {
-    const packageStatus = this.mapToPackageStatus(status);
+    const packageStatus = status;
     const packageInfo = this.packages.get(filePath);
 
     if (!packageInfo) {
@@ -90,9 +90,9 @@ export class GeneralProgressTracker implements ProgressTracker {
       ...packageInfo,
       status: packageStatus,
       statusDetail: additionalInfo?.statusDetail || status,
-      error: additionalInfo?.error || undefined,
-      statusCode: additionalInfo?.statusCode || undefined,
-      needsUpload: additionalInfo?.needsUpload || undefined,
+      ...(additionalInfo?.error !== undefined && { error: additionalInfo.error }),
+      ...(additionalInfo?.statusCode !== undefined && { statusCode: additionalInfo.statusCode }),
+      ...(additionalInfo?.needsUpload !== undefined && { needsUpload: additionalInfo.needsUpload }),
     };
 
     // 更新阶段时间记录
@@ -123,28 +123,6 @@ export class GeneralProgressTracker implements ProgressTracker {
     // 记录详细日志
     if (this.enableDetailedLogging) {
       this.logProgressUpdate(packageInfo.packageInfo.packageName, status, additionalInfo);
-    }
-  }
-
-  /**
-   * 映射状态到包状态枚举
-   */
-  private mapToPackageStatus(status: string): PackageStatus {
-    switch (status) {
-      case 'scanning':
-        return PackageStatus.SCANNING;
-      case 'checking':
-        return PackageStatus.CHECKING;
-      case 'uploading':
-        return PackageStatus.UPLOADING;
-      case 'completed':
-        return PackageStatus.COMPLETED;
-      case 'failed':
-        return PackageStatus.FAILED;
-      case 'skipped':
-        return PackageStatus.SKIPPED;
-      default:
-        return PackageStatus.PENDING;
     }
   }
 

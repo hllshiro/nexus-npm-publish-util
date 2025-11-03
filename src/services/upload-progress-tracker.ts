@@ -2,7 +2,7 @@
  * 上传进度跟踪器 - 提供详细的上传状态信息和日志记录
  */
 
-import { UploadStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
+import { PackageStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
 import { fileLogger, logger } from '@/utils/logger.js';
 
 /**
@@ -38,7 +38,7 @@ export class UploadProgressTracker implements ProgressTracker {
       this.packages.set(packageName, {
         packageName,
         filePath: '',
-        status: UploadStatus.PENDING,
+        status: PackageStatus.PENDING,
       });
     }
 
@@ -51,12 +51,8 @@ export class UploadProgressTracker implements ProgressTracker {
    * @param status 状态
    * @param additionalInfo 额外信息
    */
-  updateProgress(
-    packageName: string,
-    status: 'scanning' | 'checking' | 'uploading' | 'completed' | 'failed',
-    additionalInfo?: Partial<PackageUploadInfo>
-  ): void {
-    const uploadStatus = this.mapToUploadStatus(status);
+  updateProgress(packageName: string, status: PackageStatus, additionalInfo?: Partial<PackageUploadInfo>): void {
+    const packageStatus = status;
     const packageInfo = this.packages.get(packageName);
 
     if (!packageInfo) {
@@ -64,9 +60,9 @@ export class UploadProgressTracker implements ProgressTracker {
       this.packages.set(packageName, {
         packageName,
         filePath: additionalInfo?.filePath || '',
-        status: uploadStatus,
-        detailedStatus: status,
-        ...(uploadStatus === UploadStatus.UPLOADING && { startTime: new Date() }),
+        status: packageStatus,
+        statusDetail: status,
+        ...(packageStatus === PackageStatus.UPLOADING && { startTime: new Date() }),
         ...additionalInfo,
       });
       this.total++;
@@ -74,16 +70,16 @@ export class UploadProgressTracker implements ProgressTracker {
       // 更新现有包的信息
       const updatedInfo: PackageUploadInfo = {
         ...packageInfo,
-        status: uploadStatus,
-        detailedStatus: status,
+        status: packageStatus,
+        statusDetail: status,
         ...additionalInfo,
       };
 
       // 设置时间戳
-      if (uploadStatus === UploadStatus.UPLOADING && !updatedInfo.startTime) {
+      if (packageStatus === PackageStatus.UPLOADING && !updatedInfo.startTime) {
         updatedInfo.startTime = new Date();
       } else if (
-        (uploadStatus === UploadStatus.COMPLETED || uploadStatus === UploadStatus.FAILED) &&
+        (packageStatus === PackageStatus.COMPLETED || packageStatus === PackageStatus.FAILED) &&
         !updatedInfo.endTime
       ) {
         updatedInfo.endTime = new Date();
@@ -105,26 +101,6 @@ export class UploadProgressTracker implements ProgressTracker {
   }
 
   /**
-   * 映射状态到上传状态枚举
-   */
-  private mapToUploadStatus(status: string): UploadStatus {
-    switch (status) {
-      case 'scanning':
-        return UploadStatus.PENDING;
-      case 'checking':
-        return UploadStatus.PENDING;
-      case 'uploading':
-        return UploadStatus.UPLOADING;
-      case 'completed':
-        return UploadStatus.COMPLETED;
-      case 'failed':
-        return UploadStatus.FAILED;
-      default:
-        return UploadStatus.PENDING;
-    }
-  }
-
-  /**
    * 更新计数器
    */
   private updateCounters(): void {
@@ -132,9 +108,9 @@ export class UploadProgressTracker implements ProgressTracker {
     this.failed = 0;
 
     for (const packageInfo of this.packages.values()) {
-      if (packageInfo.status === UploadStatus.COMPLETED) {
+      if (packageInfo.status === PackageStatus.COMPLETED) {
         this.completed++;
-      } else if (packageInfo.status === UploadStatus.FAILED) {
+      } else if (packageInfo.status === PackageStatus.FAILED) {
         this.failed++;
       }
     }
@@ -143,23 +119,29 @@ export class UploadProgressTracker implements ProgressTracker {
   /**
    * 生成当前操作描述
    */
-  private generateCurrentOperationDescription(packageName: string, status: string): string {
+  private generateCurrentOperationDescription(packageName: string, status: PackageStatus): string {
     const statusMap = {
-      scanning: '扫描',
-      checking: '检查',
-      uploading: '上传',
-      completed: '完成',
-      failed: '失败',
+      [PackageStatus.PENDING]: '待处理',
+      [PackageStatus.SCANNING]: '扫描',
+      [PackageStatus.CHECKING]: '检查',
+      [PackageStatus.UPLOADING]: '上传',
+      [PackageStatus.COMPLETED]: '完成',
+      [PackageStatus.FAILED]: '失败',
+      [PackageStatus.SKIPPED]: '跳过',
     };
 
-    const statusText = statusMap[status as keyof typeof statusMap] || status;
+    const statusText = statusMap[status] || status;
     return `${statusText} ${packageName}`;
   }
 
   /**
    * 记录进度更新日志
    */
-  private logProgressUpdate(packageName: string, status: string, additionalInfo?: Partial<PackageUploadInfo>): void {
+  private logProgressUpdate(
+    packageName: string,
+    status: PackageStatus,
+    additionalInfo?: Partial<PackageUploadInfo>
+  ): void {
     const logData = {
       packageName,
       status,
@@ -187,19 +169,19 @@ export class UploadProgressTracker implements ProgressTracker {
 
     for (const packageInfo of this.packages.values()) {
       // 已扫描：不是初始PENDING状态，或者有详细状态
-      if (packageInfo.status !== UploadStatus.PENDING || packageInfo.detailedStatus) {
+      if (packageInfo.status !== PackageStatus.PENDING || packageInfo.statusDetail) {
         scannedPackages++;
       }
       // 已检查：正在上传、已完成或已失败
       if (
-        packageInfo.status === UploadStatus.UPLOADING ||
-        packageInfo.status === UploadStatus.COMPLETED ||
-        packageInfo.status === UploadStatus.FAILED
+        packageInfo.status === PackageStatus.UPLOADING ||
+        packageInfo.status === PackageStatus.COMPLETED ||
+        packageInfo.status === PackageStatus.FAILED
       ) {
         checkedPackages++;
       }
       // 已上传：状态为完成
-      if (packageInfo.status === UploadStatus.COMPLETED) {
+      if (packageInfo.status === PackageStatus.COMPLETED) {
         uploadedPackages++;
       }
     }
@@ -247,7 +229,7 @@ export class UploadProgressTracker implements ProgressTracker {
 
     for (const packageInfo of this.packages.values()) {
       packages.push({ ...packageInfo });
-      if (packageInfo.status === UploadStatus.FAILED && packageInfo.error) {
+      if (packageInfo.status === PackageStatus.FAILED && packageInfo.error) {
         errors.push(`${packageInfo.packageName}: ${packageInfo.error}`);
       }
     }
