@@ -48,7 +48,6 @@ export class GeneralProgressTracker implements ProgressTracker {
 
     logger.debug('进度跟踪器初始化完成', {
       totalPackages: this.total,
-      packages: packages.map((p) => ({ name: p.packageName, version: p.version })),
     });
   }
 

@@ -54,7 +54,7 @@ export class ProgressBarUtil {
   private isActive: boolean = false;
   private supportsProgress: boolean;
 
-  constructor(options: ProgressBarOptions) {
+  constructor(options: ProgressBarOptions & { enableLogging?: boolean }) {
     this.options = {
       title: options.title,
       total: options.total,
@@ -99,7 +99,6 @@ export class ProgressBarUtil {
       },
       cliProgress.Presets.shades_classic
     );
-
     this.bar.start(this.options.total, 0);
     this.isActive = true;
   }

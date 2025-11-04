@@ -6,6 +6,7 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { CliArgs } from '@/types/index.ts';
+import { LogLevel } from '@/types/index.ts';
 import { parseRegistryUrl } from '@/utils/registry-url-parser.ts';
 import process from 'node:process';
 
@@ -39,6 +40,13 @@ export function parseCliArgs(): CliArgs {
       type: 'number',
       default: 1,
     })
+    .option('log-level', {
+      alias: 'l',
+      description: 'Log level (debug, info, warn, error)',
+      type: 'string',
+      choices: ['debug', 'info', 'warn', 'error'],
+      default: 'info',
+    })
     .wrap(80)
     .help()
     .parseSync();
@@ -58,12 +66,32 @@ export function parseCliArgs(): CliArgs {
     process.exit(1);
   }
 
+  // 解析日志级别
+  let logLevel: LogLevel;
+  switch (argv['log-level']) {
+    case 'debug':
+      logLevel = LogLevel.DEBUG;
+      break;
+    case 'info':
+      logLevel = LogLevel.INFO;
+      break;
+    case 'warn':
+      logLevel = LogLevel.WARN;
+      break;
+    case 'error':
+      logLevel = LogLevel.ERROR;
+      break;
+    default:
+      logLevel = LogLevel.INFO;
+  }
+
   // 构建CLI参数对象 - 移除forcePublish，因为新设计中每个包都会单独检查
   const result: CliArgs = {
     publishDir: argv.dir,
     threadNumber: argv.threads,
     publishRegistry: argv.registry,
     publishAuth: argv.auth,
+    logLevel,
   };
 
   return result;

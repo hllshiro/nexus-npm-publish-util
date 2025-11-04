@@ -6,6 +6,7 @@ export interface CliArgs {
   publishRegistry: string;
   publishAuth: string;
   threadNumber: number;
+  logLevel?: LogLevel;
 }
 
 /**

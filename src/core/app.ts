@@ -27,6 +27,11 @@ export class App {
   constructor(config: CliArgs) {
     // 设置配置，应用默认值
     this.config = config;
+
+    // 根据CLI参数设置logger级别
+    if (config.logLevel !== undefined) {
+      logger.setLevel(config.logLevel);
+    }
   }
 
   /**

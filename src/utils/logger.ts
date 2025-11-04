@@ -229,6 +229,20 @@ export class Logger {
   public error(message: string, data?: unknown): void {
     this.writeLog(LogLevel.ERROR, message, data);
   }
+
+  /**
+   * 设置日志级别
+   */
+  public setLevel(level: LogLevel): void {
+    this.config.level = level;
+  }
+
+  /**
+   * 获取当前日志级别
+   */
+  public getLevel(): LogLevel {
+    return this.config.level;
+  }
 }
 
 /**
