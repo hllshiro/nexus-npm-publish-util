@@ -3,9 +3,9 @@
   "specifiers": {
     "npm:@types/node@*": "24.2.0",
     "npm:chalk@^5.6.2": "5.6.2",
+    "npm:cli-progress@^3.12.0": "3.12.0",
     "npm:fast-glob@^3.3.3": "3.3.3",
     "npm:log4js@^6.9.1": "6.9.1",
-    "npm:progress@^2.0.3": "2.0.3",
     "npm:tar@^7.5.1": "7.5.2",
     "npm:yargs@^17.7.2": "17.7.2"
   },
@@ -69,6 +69,13 @@
     "chownr@3.0.0": {
       "integrity": "sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==",
       "tarball": "http://localhost:4873/chownr/-/chownr-3.0.0.tgz"
+    },
+    "cli-progress@3.12.0": {
+      "integrity": "sha512-tRkV3HJ1ASwm19THiiLIXLO7Im7wlTuKnvkYaTkyoAPefqjNg7W7DHKUlGRxy9vxDvbyCYQkQozvptuMkGCg8A==",
+      "dependencies": [
+        "string-width"
+      ],
+      "tarball": "http://localhost:4873/cli-progress/-/cli-progress-3.12.0.tgz"
     },
     "cliui@8.0.1": {
       "integrity": "sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==",
@@ -230,10 +237,6 @@
       "integrity": "sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==",
       "tarball": "http://localhost:4873/picomatch/-/picomatch-2.3.1.tgz"
     },
-    "progress@2.0.3": {
-      "integrity": "sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==",
-      "tarball": "http://localhost:4873/progress/-/progress-2.0.3.tgz"
-    },
     "queue-microtask@1.2.3": {
       "integrity": "sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==",
       "tarball": "http://localhost:4873/queue-microtask/-/queue-microtask-1.2.3.tgz"
@@ -346,9 +349,9 @@
   "workspace": {
     "dependencies": [
       "npm:chalk@^5.6.2",
+      "npm:cli-progress@^3.12.0",
       "npm:fast-glob@^3.3.3",
       "npm:log4js@^6.9.1",
-      "npm:progress@^2.0.3",
       "npm:tar@^7.5.1",
       "npm:yargs@^17.7.2"
     ]

@@ -16,11 +16,6 @@ export class UploadProgressTracker implements ProgressTracker {
   private packages: Map<string, PackageUploadInfo> = new Map();
   private startTime: Date = new Date();
   private currentOperation: string = '';
-  private enableDetailedLogging: boolean;
-
-  constructor(enableDetailedLogging: boolean = false) {
-    this.enableDetailedLogging = enableDetailedLogging;
-  }
 
   /**
    * 初始化跟踪器
@@ -93,11 +88,6 @@ export class UploadProgressTracker implements ProgressTracker {
 
     // 更新当前操作描述
     this.currentOperation = this.generateCurrentOperationDescription(packageName, status);
-
-    // 记录详细日志
-    if (this.enableDetailedLogging) {
-      this.logProgressUpdate(packageName, status, additionalInfo);
-    }
   }
 
   /**
@@ -132,30 +122,6 @@ export class UploadProgressTracker implements ProgressTracker {
 
     const statusText = statusMap[status] || status;
     return `${statusText} ${packageName}`;
-  }
-
-  /**
-   * 记录进度更新日志
-   */
-  private logProgressUpdate(
-    packageName: string,
-    status: PackageStatus,
-    additionalInfo?: Partial<PackageUploadInfo>
-  ): void {
-    const logData = {
-      packageName,
-      status,
-      timestamp: new Date().toISOString(),
-      ...additionalInfo,
-    };
-
-    // 隐藏敏感信息
-    if (logData.error) {
-      // 不记录包含认证信息的错误详情
-      logData.error = logData.error.replace(/Basic\s+[A-Za-z0-9+/=]+/g, 'Basic [HIDDEN]');
-    }
-
-    logger.debug(`进度更新: ${JSON.stringify(logData)}`);
   }
 
   /**
@@ -302,6 +268,6 @@ export class UploadProgressTracker implements ProgressTracker {
 /**
  * 创建上传进度跟踪器实例
  */
-export function createUploadProgressTracker(enableDetailedLogging: boolean = false): UploadProgressTracker {
-  return new UploadProgressTracker(enableDetailedLogging);
+export function createUploadProgressTracker(): UploadProgressTracker {
+  return new UploadProgressTracker();
 }

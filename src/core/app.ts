@@ -39,8 +39,6 @@ export class App {
    * 4. 输出详细的结果统计
    */
   public async publishMode(): Promise<void> {
-    logger.info('开始发布');
-
     try {
       // 创建优化的发布配置，合并默认值和覆盖参数
       const publishConfig: PublishConfig = {
@@ -52,7 +50,6 @@ export class App {
         scanPattern: '**/*.tgz',
         requestTimeout: 300000, // 5分钟
         connectTimeout: 30000, // 30秒
-        enableDetailedLogging: false,
       };
 
       // 创建包管理器实例
@@ -84,8 +81,7 @@ export class App {
    * 运行应用
    */
   public async run(): Promise<void> {
-    logger.info(`调用开始: ${new Date().toISOString()}`);
-    logger.info(`用户指令: ${process.argv.join(' ')}`);
+    logger.debug(`用户指令: ${process.argv.join(' ')}`);
 
     try {
       await this.publishMode();
@@ -93,7 +89,5 @@ export class App {
       logger.error('执行失败', err);
       throw err;
     }
-
-    logger.info(`执行结束: ${new Date().toISOString()}`);
   }
 }

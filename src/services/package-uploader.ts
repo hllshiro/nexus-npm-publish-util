@@ -35,7 +35,6 @@ export class FetchPackageUploader implements PackageUploader {
     this.config = {
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
       connectTimeout: config.connectTimeout ?? 30000, // 30秒
-      enableDetailedLogging: config.enableDetailedLogging ?? false,
       ...(config.progressTracker && { progressTracker: config.progressTracker }),
     };
   }
@@ -49,28 +48,10 @@ export class FetchPackageUploader implements PackageUploader {
    */
   async uploadPackage(filePath: string, registryUrl: string, auth: string): Promise<UploadResult> {
     const fileName = basename(filePath);
-    const packageName = this.extractPackageNameFromFileName(fileName);
 
     try {
       // 构建实际的上传URL
       const uploadUrl = buildUploadUrlFromRegistry(registryUrl);
-
-      // 获取文件大小信息
-      let fileStats;
-      let fileSize = 0;
-      try {
-        fileStats = await stat(filePath);
-        fileSize = fileStats.size;
-      } catch (error) {
-        const err = error as ErrnoException;
-        if (err.code === 'ENOENT') {
-          throw this.createUploadError(ErrorType.FILE_ERROR, `文件不存在: ${filePath}`, {
-            filePath,
-            errorCode: err.code,
-          });
-        }
-        throw error;
-      }
 
       // 更新进度跟踪器 - 开始上传
       if (this.config.progressTracker) {
@@ -80,21 +61,6 @@ export class FetchPackageUploader implements PackageUploader {
           needsUpload: true,
           statusDetail: `开始上传文件: ${filePath}`,
         });
-      }
-
-      // 记录上传开始信息（隐藏敏感信息）
-      const logInfo = {
-        fileName,
-        packageName,
-        fileSize: this.formatFileSize(fileSize),
-        registryUrl,
-        uploadUrl,
-        authFormat: auth,
-        timeout: this.config.requestTimeout,
-      };
-
-      if (this.config.enableDetailedLogging) {
-        logger.info(`开始上传包: ${JSON.stringify(logInfo)}`);
       }
 
       // 读取文件内容
@@ -116,19 +82,6 @@ export class FetchPackageUploader implements PackageUploader {
         if (result.statusCode) updateInfo.statusCode = result.statusCode;
 
         this.config.progressTracker.updateProgress(filePath, status, updateInfo);
-      }
-
-      // 记录上传结果
-      if (this.config.enableDetailedLogging) {
-        const resultLog = {
-          fileName,
-          packageName,
-          success: result.success,
-          statusCode: result.statusCode,
-          responseLength: result.responseBody?.length || 0,
-          fileSize: this.formatFileSize(fileSize),
-        };
-        logger.info(`上传完成: ${JSON.stringify(resultLog)}`);
       }
 
       return result;
@@ -250,18 +203,6 @@ export class FetchPackageUploader implements PackageUploader {
 
       // 读取响应内容
       const responseBody = await response.text();
-
-      // 记录详细的响应信息（用于调试）
-      if (this.config.enableDetailedLogging) {
-        const responseLog = {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          bodyLength: responseBody.length,
-          bodyPreview: responseBody.substring(0, 200), // 只记录前200个字符
-        };
-        logger.debug(`HTTP响应详情: ${JSON.stringify(responseLog, null, 2)}`);
-      }
 
       // 检查响应状态
       if (response.ok) {
@@ -402,48 +343,6 @@ export class FetchPackageUploader implements PackageUploader {
       responseBody: details.responseBody as string,
     };
   }
-
-  /**
-   * 从文件名提取包名
-   * 支持标准npm包文件名格式：name-version.tgz 或 @scope/name-version.tgz
-   */
-  private extractPackageNameFromFileName(fileName: string): string {
-    // 移除.tgz扩展名
-    const nameWithoutExt = fileName.replace(/\.tgz$/, '');
-
-    // 处理scoped包：@scope-name-version -> @scope/name
-    if (nameWithoutExt.startsWith('@')) {
-      const parts = nameWithoutExt.split('-');
-      if (parts.length >= 3) {
-        // @scope-name-version -> @scope/name
-        const scope = parts[0]; // @scope
-        const name = parts[1]; // name
-        return `${scope}/${name}`;
-      }
-    }
-
-    // 处理普通包：name-version -> name
-    const lastDashIndex = nameWithoutExt.lastIndexOf('-');
-    if (lastDashIndex > 0) {
-      return nameWithoutExt.substring(0, lastDashIndex);
-    }
-
-    // 如果无法解析，返回原文件名（不含扩展名）
-    return nameWithoutExt;
-  }
-
-  /**
-   * 格式化文件大小为可读字符串
-   */
-  private formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 B';
-
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  }
 }
 
 /**
@@ -456,6 +355,4 @@ export function createPackageUploader(config?: UploadConfig): PackageUploader {
 /**
  * 默认包上传器实例
  */
-export const packageUploader = new FetchPackageUploader({
-  enableDetailedLogging: false,
-});
+export const packageUploader = new FetchPackageUploader({});

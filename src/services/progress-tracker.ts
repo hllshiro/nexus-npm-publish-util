@@ -25,11 +25,6 @@ export class GeneralProgressTracker implements ProgressTracker {
   private packages: Map<string, PackageProcessInfo> = new Map();
   private startTime: Date = new Date();
   private currentOperation: string = '';
-  private enableDetailedLogging: boolean;
-
-  constructor(enableDetailedLogging: boolean = false) {
-    this.enableDetailedLogging = enableDetailedLogging;
-  }
 
   /**
    * 初始化跟踪器
@@ -51,14 +46,10 @@ export class GeneralProgressTracker implements ProgressTracker {
       });
     }
 
-    logger.info(`初始化进度跟踪器: ${this.total} 个包`);
-
-    if (this.enableDetailedLogging) {
-      logger.info('进度跟踪器初始化完成', {
-        totalPackages: this.total,
-        packages: packages.map((p) => ({ name: p.packageName, version: p.version })),
-      });
-    }
+    logger.debug('进度跟踪器初始化完成', {
+      totalPackages: this.total,
+      packages: packages.map((p) => ({ name: p.packageName, version: p.version })),
+    });
   }
 
   /**
@@ -119,11 +110,6 @@ export class GeneralProgressTracker implements ProgressTracker {
 
     // 更新当前操作描述
     this.currentOperation = this.generateCurrentOperationDescription(packageInfo.packageInfo.packageName, status);
-
-    // 记录详细日志
-    if (this.enableDetailedLogging) {
-      this.logProgressUpdate(packageInfo.packageInfo.packageName, status, additionalInfo);
-    }
   }
 
   /**
@@ -190,17 +176,6 @@ export class GeneralProgressTracker implements ProgressTracker {
 
     const statusText = statusMap[status as keyof typeof statusMap] || status;
     return `${statusText} ${packageName}`;
-  }
-
-  /**
-   * 记录进度更新日志
-   */
-  private logProgressUpdate(packageName: string, status: string, additionalInfo?: Record<string, unknown>): void {
-    logger.info(`包处理进度更新: ${packageName} -> ${status}`, {
-      status,
-      timestamp: new Date().toISOString(),
-      ...additionalInfo,
-    });
   }
 
   /**
@@ -465,32 +440,9 @@ export class GeneralProgressTracker implements ProgressTracker {
       `跳过: ${skippedPackages}`,
       `总耗时: ${Math.round(detailedReport.totalElapsedTime / 1000)}秒`,
       `处理速率: ${detailedReport.processingRate.toFixed(2)} 包/秒`,
-      '',
-      '=== 各阶段统计 ===',
     ];
 
-    for (const phase of detailedReport.phaseStatistics) {
-      const skippedText = phase.skipped > 0 ? `, 跳过${phase.skipped}个` : '';
-      report.push(
-        `${phase.phase}: 处理${phase.processed}个, 成功${phase.successful}个, 失败${phase.failed}个${skippedText}, 平均耗时${phase.averageTime}ms`
-      );
-    }
-
     // 添加详细明细到日志文件
-    if (completedList.length > 0) {
-      report.push('', '=== 成功上传明细 ===');
-      completedList.forEach((item, index) => {
-        report.push(`${index + 1}. ${item}`);
-      });
-    }
-
-    if (skippedList.length > 0) {
-      report.push('', '=== 跳过包明细（已存在）===');
-      skippedList.forEach((item, index) => {
-        report.push(`${index + 1}. ${item}`);
-      });
-    }
-
     if (failedList.length > 0) {
       report.push('', '=== 失败包明细 ===');
       failedList.forEach((item, index) => {
@@ -531,6 +483,6 @@ export class GeneralProgressTracker implements ProgressTracker {
 /**
  * 创建通用进度跟踪器实例
  */
-export function createProgressTracker(enableDetailedLogging: boolean = false): GeneralProgressTracker {
-  return new GeneralProgressTracker(enableDetailedLogging);
+export function createProgressTracker(): GeneralProgressTracker {
+  return new GeneralProgressTracker();
 }

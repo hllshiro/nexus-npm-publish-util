@@ -11,7 +11,7 @@ import { TarPackageInfoExtractor } from './package-info-extractor.ts';
 import { createProgressTracker } from './progress-tracker.ts';
 import { logger } from '@/utils/logger.ts';
 import { asyncFn } from '@/utils/task.ts';
-import ProgressBar from 'progress';
+import { createProgressBar } from '@/utils/progress-bar.ts';
 import type {
   DetailedProgressReport,
   OperationResult,
@@ -49,7 +49,6 @@ export class DefaultPackageManager implements PackageManager {
       scanPattern: config.scanPattern ?? '**/*.tgz',
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
       connectTimeout: config.connectTimeout ?? 30000, // 30秒
-      enableDetailedLogging: config.enableDetailedLogging ?? false,
     };
 
     // 初始化组件
@@ -61,12 +60,11 @@ export class DefaultPackageManager implements PackageManager {
     this.uploader = new FetchPackageUploader({
       requestTimeout: this.config.requestTimeout,
       connectTimeout: this.config.connectTimeout,
-      enableDetailedLogging: this.config.enableDetailedLogging,
     });
     this.extractor = new TarPackageInfoExtractor();
-    this.progressTracker = createProgressTracker(this.config.enableDetailedLogging);
+    this.progressTracker = createProgressTracker();
 
-    logger.info('包管理器初始化完成', {
+    logger.debug('包管理器初始化完成', {
       publishDir: this.config.publishDir,
       publishRegistry: this.config.publishRegistry,
       threadNumber: this.config.threadNumber,
@@ -80,12 +78,6 @@ export class DefaultPackageManager implements PackageManager {
    */
   async publishPackages(): Promise<OperationResult> {
     const startTime = Date.now();
-
-    logger.info('开始执行包发布流程', {
-      publishDir: this.config.publishDir,
-      publishRegistry: this.config.publishRegistry,
-      threadNumber: this.config.threadNumber,
-    });
 
     try {
       // 阶段1: 扫描包文件
@@ -147,7 +139,7 @@ export class DefaultPackageManager implements PackageManager {
    * @returns 包信息列表
    */
   private async scanAndExtractPackages(publishDir: string): Promise<PackageInfo[]> {
-    logger.info('开始扫描包文件', { publishDir });
+    logger.debug('开始扫描包文件', { publishDir });
 
     try {
       // 扫描.tgz文件
@@ -159,12 +151,13 @@ export class DefaultPackageManager implements PackageManager {
       }
 
       // 创建进度条 - 文件信息提取
-      const extractProgressBar = new ProgressBar('Scanning  [:bar] :current/:total :percent :etas', {
-        complete: '█',
-        incomplete: '░',
-        width: 40,
+      const extractProgressBar = createProgressBar({
+        title: 'Scanning',
         total: tgzFiles.length,
+        enableColor: true,
+        barWidth: 40,
       });
+      extractProgressBar.start();
 
       // 提取包信息
       const packageInfoList: PackageInfo[] = [];
@@ -176,23 +169,18 @@ export class DefaultPackageManager implements PackageManager {
           const packageInfo = await this.extractor.extractPackageInfo(filePath);
           if (packageInfo) {
             packageInfoList.push(packageInfo);
-
-            if (this.config.enableDetailedLogging) {
-              logger.debug('成功提取包信息', {
-                version: packageInfo.version,
-                filePath: packageInfo.filePath,
-                fileName: packageInfo.fileName,
-              });
-            }
           } else {
             logger.warn(`无法提取包信息: ${filePath}`);
           }
 
           // 更新进度条
-          extractProgressBar.tick();
+          extractProgressBar.increment();
         },
         Math.min(this.config.threadNumber, 10) // 限制并发数，避免文件系统过载
       );
+
+      // 停止进度条
+      extractProgressBar.stop();
 
       logger.info(`成功提取 ${packageInfoList.length} 个包的信息`);
       return packageInfoList;
@@ -215,15 +203,16 @@ export class DefaultPackageManager implements PackageManager {
   ): Promise<PublishTask[]> {
     const publishTasks: PublishTask[] = [];
 
-    logger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
+    logger.debug('开始检查包存在性', { totalPackages: packageInfoList.length });
 
     // 创建进度条 - 包检查
-    const checkProgressBar = new ProgressBar('Checking  [:bar] :current/:total :percent :etas', {
-      complete: '█',
-      incomplete: '░',
-      width: 40,
+    const checkProgressBar = createProgressBar({
+      title: 'Checking',
       total: packageInfoList.length,
+      enableColor: true,
+      barWidth: 40,
     });
+    checkProgressBar.start();
 
     // 使用并发控制检查包存在性
     await asyncFn(
@@ -261,9 +250,7 @@ export class DefaultPackageManager implements PackageManager {
             });
           }
 
-          if (this.config.enableDetailedLogging) {
-            logger.debug('包存在性检查完成', { version: packageInfo.version, exists, needsUpload });
-          }
+          logger.debug('包存在性检查完成', { version: packageInfo.version, exists, needsUpload });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           logger.error(`检查包存在性失败: ${packageInfo.packageName}`, { error: errorMessage });
@@ -281,10 +268,13 @@ export class DefaultPackageManager implements PackageManager {
         }
 
         // 更新进度条
-        checkProgressBar.tick();
+        checkProgressBar.increment();
       },
       this.config.threadNumber
     );
+
+    // 停止进度条
+    checkProgressBar.stop();
 
     const packagesNeedingUpload = publishTasks.filter((task) => task.needsUpload).length;
     const packagesSkipped = publishTasks.length - packagesNeedingUpload;
@@ -313,17 +303,20 @@ export class DefaultPackageManager implements PackageManager {
     if (tasksNeedingUpload.length === 0) {
       logger.info('没有需要上传的包');
       return { success: 0, failed: [] };
+    } else {
+      logger.info(`有${tasksNeedingUpload.length}个需要上传的包`);
     }
 
-    logger.info('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
+    logger.debug('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
     // 创建进度条 - 包上传
-    const uploadProgressBar = new ProgressBar('Uploading [:bar] :current/:total :percent :etas', {
-      complete: '█',
-      incomplete: '░',
-      width: 40,
+    const uploadProgressBar = createProgressBar({
+      title: 'Uploading',
       total: tasksNeedingUpload.length,
+      enableColor: true,
+      barWidth: 40,
     });
+    uploadProgressBar.start();
 
     const result: OperationResult = {
       success: 0,
@@ -355,14 +348,6 @@ export class DefaultPackageManager implements PackageManager {
               statusDetail: '上传成功',
               ...(uploadResult.statusCode !== undefined && { statusCode: uploadResult.statusCode }),
             });
-
-            if (this.config.enableDetailedLogging) {
-              logger.info('包上传成功', {
-                version: packageInfo.version,
-                statusCode: uploadResult.statusCode,
-                fileName: packageInfo.fileName,
-              });
-            }
           } else {
             const errorMsg = `上传失败 ${packageInfo.packageName} - ${uploadResult.error}`;
             result.failed.push(errorMsg);
@@ -396,10 +381,13 @@ export class DefaultPackageManager implements PackageManager {
         }
 
         // 更新进度条
-        uploadProgressBar.tick();
+        uploadProgressBar.increment();
       },
       this.config.threadNumber
     );
+
+    // 停止进度条
+    uploadProgressBar.stop();
 
     logger.info('上传任务执行完成', {
       totalTasks: tasksNeedingUpload.length,
@@ -459,25 +447,26 @@ export class DefaultPackageManager implements PackageManager {
 
     // 先输出进度跟踪器的详细报告
     const finalReport = this.progressTracker.generateFinalReport();
-    logger.info('\n' + finalReport);
+    logger.info('\n' + finalReport + '\n');
 
     // 输出详细的各阶段耗时信息
-    if (this.config.enableDetailedLogging) {
-      logger.info('=== 各阶段耗时 ===');
-      logger.info(`扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`);
-      logger.info(`检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`);
-      logger.info(`上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`);
-    }
+    const finish = [
+      '=== 各阶段耗时 ===',
+      `扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`,
+      `检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`,
+      `上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`,
+      '',
+      '=== 包发布完成报告 ===',
+      `总包数: ${stats.totalPackages}`,
+      `扫描到的包: ${stats.scannedPackages}`,
+      `需要上传: ${stats.packagesNeedingUpload}`,
+      `成功上传: ${actualSuccessfulUploads}`,
+      `失败: ${actualFailedPackages}`,
+      `跳过（已存在）: ${actualSkippedPackages}`,
+      `总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`,
+    ].join('\n');
 
-    // 最后输出总结报告
-    logger.info('=== 包发布完成报告 ===');
-    logger.info(`总包数: ${stats.totalPackages}`);
-    logger.info(`扫描到的包: ${stats.scannedPackages}`);
-    logger.info(`需要上传: ${stats.packagesNeedingUpload}`);
-    logger.info(`成功上传: ${actualSuccessfulUploads}`);
-    logger.info(`失败: ${actualFailedPackages}`);
-    logger.info(`跳过（已存在）: ${actualSkippedPackages}`);
-    logger.info(`总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`);
+    logger.info('\n' + finish);
   }
 
   /**

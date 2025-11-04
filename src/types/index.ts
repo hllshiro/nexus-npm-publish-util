@@ -18,8 +18,6 @@ export interface PublishConfig extends CliArgs {
   requestTimeout?: number;
   /** 连接超时时间（毫秒） */
   connectTimeout?: number;
-  /** 是否启用详细日志记录 */
-  enableDetailedLogging?: boolean;
 }
 
 /**
@@ -360,8 +358,6 @@ export type PackageCheckerConfig = BaseNetworkConfig;
  * 上传配置接口
  */
 export interface UploadConfig extends BaseNetworkConfig {
-  /** 是否记录详细的请求响应日志 */
-  enableDetailedLogging?: boolean;
   /** 进度跟踪器实例（可选） */
   progressTracker?: ProgressTracker;
   // 继承基础网络配置，默认值：connectTimeout=30秒，requestTimeout=300秒
