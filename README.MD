@@ -1,42 +1,65 @@
 # npm包发布工具
 
-基于TypeScript和Bun构建的npm包发布工具，专注于将npm包发布到私有仓库。经过优化，现在支持高性能文件扫描、单包存在性检查和现代HTTP客户端。
+基于TypeScript和Deno构建的npm包发布工具，专注于将npm包发布到私有仓库。经过优化，现在支持高性能文件扫描、单包存在性检查和现代HTTP客户端。
+
+## 环境要求
+
+- [Deno](https://deno.land/) 1.40+ 
+- 支持的操作系统：Windows、Linux、macOS
 
 ## 安装和构建
 
 ```bash
-# 安装依赖
-bun install
-
 # 开发模式运行
-bun run dev
+deno task dev
 
-# 构建可执行文件（Bun版本，推荐）
-bun run build
+# 直接运行
+deno task start
 
-# 构建跨平台可执行文件（PKG版本，兼容性更好）
-bun run build:pkg
+# 代码检查（lint + 类型检查）
+deno task check
 
-# 构建所有版本
-bun run build:all
+# 构建可执行文件
+deno task build
+
+# 清理构建产物
+deno task clean
 ```
 
-### 构建选项说明
+### 构建说明
 
-- **`bun run build`**: 使用Bun构建，生成单个可执行文件（`dist/pu.exe`），性能最佳，但需要目标机器支持Bun运行时
-- **`bun run build:pkg`**: 使用PKG构建，生成跨平台可执行文件：
-  - `dist/pu-win.exe` - Windows版本
-  - `dist/pu-linux` - Linux版本  
-  - `dist/pu-macos` - macOS版本
-  - 兼容性更好，无需安装Node.js或Bun运行时
-- **`bun run build:all`**: 同时构建两个版本，适合需要分发到不同环境的场景
+- **`deno task build`**: 使用Deno编译器构建，生成单个可执行文件（`dist/pu.exe`）
+- 构建产物为原生可执行文件，无需安装Deno运行时即可运行
+- 支持Windows x64平台，可根据需要修改target参数支持其他平台
 
 ### 技术实现
 
-PKG构建使用以下技术栈：
-- TypeScript编译为CommonJS模块
-- `tsc-alias`解析路径别名（`@/*`映射）
-- PKG打包为独立可执行文件，支持Node.js 18运行时
+项目使用现代化的Deno技术栈：
+- **TypeScript原生支持**: 无需额外编译步骤，直接运行.ts文件
+- **路径别名**: `@/*`映射到`src/*`，简化模块导入
+- **原生可执行文件**: 使用`deno compile`打包为独立可执行文件
+- **严格类型检查**: 启用所有TypeScript严格模式选项
+- **现代ES模块**: 使用ESNext模块系统和import/export语法
+- **内置工具链**: 集成格式化、lint、测试等开发工具
+
+### 开发工作流
+
+```bash
+# 代码格式化
+deno task format
+
+# 代码检查
+deno task lint
+
+# 类型检查
+deno task typecheck
+
+# 运行测试
+deno task test
+
+# 完整检查（推荐在提交前运行）
+deno task check
+```
 
 ## 使用方法
 
@@ -109,12 +132,31 @@ Registry URL必须符合以下格式：`${BASEURL}/repository/{repository}/`
 
 ## 技术栈
 
-- **运行时**: Bun
-- **语言**: TypeScript
-- **构建工具**: Bun build
-- **代码规范**: ESLint + Prettier
-- **提交规范**: Angular Commit Convention
-- **Git钩子**: Husky + lint-staged + commitlint
+- **运行时**: Deno 1.40+
+- **语言**: TypeScript (严格模式)
+- **构建工具**: Deno compile
+- **代码规范**: Deno fmt + Deno lint
+- **依赖管理**: Deno原生支持，通过deno.json配置
+
+### 主要依赖
+
+- **chalk**: 终端颜色输出
+- **fast-glob**: 高性能文件扫描
+- **log4js**: 结构化日志记录
+- **progress**: 进度条显示
+- **tar**: .tgz文件解析
+- **yargs**: 命令行参数解析
+
+所有依赖通过npm:前缀从npm仓库导入，无需额外的包管理器。
+
+## 为什么选择Deno？
+
+- **安全性**: 默认安全，需要显式授权文件、网络等权限
+- **现代化**: 原生支持TypeScript、ES模块、Web标准API
+- **简单性**: 无需package.json、node_modules，依赖管理更简洁
+- **性能**: 基于V8和Rust构建，启动速度快，内存占用低
+- **工具链**: 内置格式化、lint、测试、打包等工具
+- **兼容性**: 支持npm包，可以无缝使用现有生态
 
 ## 项目结构
 
@@ -123,19 +165,20 @@ src/
 ├── core/                    # 核心业务逻辑
 │   ├── cli.ts              # CLI参数处理
 │   └── app.ts              # 应用主逻辑
-├── services/               # 业务服务层
-│   ├── publish.ts          # 发布服务（优化版）
-│   ├── package-manager.ts  # 包管理器（新增）
-│   ├── package-scanner.ts  # 包扫描器（新增）
-│   ├── package-checker.ts  # 包检查器（新增）
-│   ├── package-uploader.ts # 包上传器（新增）
-│   └── progress-tracker.ts # 进度跟踪器（新增）
-├── utils/                  # 工具函数
-│   ├── file.ts            # 文件操作工具
-│   ├── task.ts            # 并发任务工具
-│   ├── logger.ts          # 日志工具
-│   ├── enhanced-logger.ts # 增强日志工具（新增）
-│   └── common.ts          # 通用工具
+├── services/                    # 业务服务层
+│   ├── publish.ts              # 发布服务（优化版）
+│   ├── package-manager.ts      # 包管理器
+│   ├── package-scanner.ts      # 包扫描器
+│   ├── package-checker.ts      # 包检查器
+│   ├── package-uploader.ts     # 包上传器
+│   ├── package-info-extractor.ts # 包信息提取器
+│   ├── progress-tracker.ts     # 进度跟踪器
+│   └── upload-progress-tracker.ts # 上传进度跟踪器
+├── utils/                      # 工具函数
+│   ├── task.ts                # 并发任务工具
+│   ├── logger.ts              # 日志工具
+│   ├── error-handler.ts       # 错误处理工具
+│   └── registry-url-parser.ts # 仓库URL解析工具
 ├── types/                 # TypeScript类型定义
 │   ├── config.ts          # 配置类型
 │   ├── package.ts         # 包相关类型
@@ -155,7 +198,7 @@ src/
 - [x] TypeScript支持
   - [x] 完整的类型安全
   - [x] 模块化架构设计
-  - [x] 使用Bun运行时
+  - [x] 使用Deno运行时
 
 ### 性能优化
 - [x] **高性能文件扫描**: 使用fast-glob库，支持递归扫描和模式匹配
