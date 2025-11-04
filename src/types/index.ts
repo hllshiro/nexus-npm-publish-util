@@ -178,7 +178,6 @@ export enum LogLevel {
  */
 export interface LoggerConfig {
   level: LogLevel;
-  logFile?: string;
   enableConsole: boolean;
   enableFile: boolean;
 }

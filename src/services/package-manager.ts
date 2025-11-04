@@ -159,7 +159,7 @@ export class DefaultPackageManager implements PackageManager {
       }
 
       // 创建进度条 - 文件信息提取
-      const extractProgressBar = new ProgressBar('提取包信息 [:bar] :current/:total :percent :etas', {
+      const extractProgressBar = new ProgressBar('Scanning  [:bar] :current/:total :percent :etas', {
         complete: '█',
         incomplete: '░',
         width: 40,
@@ -218,7 +218,7 @@ export class DefaultPackageManager implements PackageManager {
     logger.info('开始检查包存在性', { totalPackages: packageInfoList.length });
 
     // 创建进度条 - 包检查
-    const checkProgressBar = new ProgressBar('检查包存在性 [:bar] :current/:total :percent :etas', {
+    const checkProgressBar = new ProgressBar('Checking  [:bar] :current/:total :percent :etas', {
       complete: '█',
       incomplete: '░',
       width: 40,
@@ -318,7 +318,7 @@ export class DefaultPackageManager implements PackageManager {
     logger.info('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
     // 创建进度条 - 包上传
-    const uploadProgressBar = new ProgressBar('上传包文件 [:bar] :current/:total :percent :etas', {
+    const uploadProgressBar = new ProgressBar('Uploading [:bar] :current/:total :percent :etas', {
       complete: '█',
       incomplete: '░',
       width: 40,
@@ -457,6 +457,19 @@ export class DefaultPackageManager implements PackageManager {
       }
     }
 
+    // 先输出进度跟踪器的详细报告
+    const finalReport = this.progressTracker.generateFinalReport();
+    logger.info('\n' + finalReport);
+
+    // 输出详细的各阶段耗时信息
+    if (this.config.enableDetailedLogging) {
+      logger.info('=== 各阶段耗时 ===');
+      logger.info(`扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`);
+      logger.info(`检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`);
+      logger.info(`上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`);
+    }
+
+    // 最后输出总结报告
     logger.info('=== 包发布完成报告 ===');
     logger.info(`总包数: ${stats.totalPackages}`);
     logger.info(`扫描到的包: ${stats.scannedPackages}`);
@@ -465,17 +478,6 @@ export class DefaultPackageManager implements PackageManager {
     logger.info(`失败: ${actualFailedPackages}`);
     logger.info(`跳过（已存在）: ${actualSkippedPackages}`);
     logger.info(`总耗时: ${Math.round(stats.totalElapsedTime / 1000)}秒`);
-
-    if (this.config.enableDetailedLogging) {
-      logger.info('=== 各阶段耗时 ===');
-      logger.info(`扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`);
-      logger.info(`检查阶段: ${Math.round(stats.phaseTimings.checking / 1000)}秒`);
-      logger.info(`上传阶段: ${Math.round(stats.phaseTimings.uploading / 1000)}秒`);
-    }
-
-    // 输出进度跟踪器的详细报告
-    const finalReport = this.progressTracker.generateFinalReport();
-    logger.info('\n' + finalReport);
   }
 
   /**

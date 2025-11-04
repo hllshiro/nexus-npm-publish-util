@@ -3,7 +3,7 @@
  */
 
 import { PackageStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
-import { fileLogger, logger } from '@/utils/logger';
+import { logger } from '@/utils/logger';
 
 /**
  * 上传进度跟踪器实现
@@ -155,7 +155,7 @@ export class UploadProgressTracker implements ProgressTracker {
       logData.error = logData.error.replace(/Basic\s+[A-Za-z0-9+/=]+/g, 'Basic [HIDDEN]');
     }
 
-    fileLogger.debug(`进度更新: ${JSON.stringify(logData)}`);
+    logger.debug(`进度更新: ${JSON.stringify(logData)}`);
   }
 
   /**

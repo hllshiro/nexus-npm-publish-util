@@ -13,7 +13,7 @@ import {
   type UploadConfig,
   type UploadResult,
 } from '@/types';
-import { fileLogger, logger } from '@/utils/logger';
+import { logger } from '@/utils/logger';
 import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser';
 
 // 定义错误接口
@@ -147,7 +147,7 @@ export class FetchPackageUploader implements PackageUploader {
       }
 
       // 记录错误信息
-      fileLogger.error(`包上传失败: ${fileName}`, {
+      logger.error(`包上传失败: ${fileName}`, {
         error: uploadError.message,
         type: uploadError.type,
         filePath,
@@ -258,7 +258,7 @@ export class FetchPackageUploader implements PackageUploader {
           bodyLength: responseBody.length,
           bodyPreview: responseBody.substring(0, 200), // 只记录前200个字符
         };
-        fileLogger.debug(`HTTP响应详情: ${JSON.stringify(responseLog, null, 2)}`);
+        logger.debug(`HTTP响应详情: ${JSON.stringify(responseLog, null, 2)}`);
       }
 
       // 检查响应状态
