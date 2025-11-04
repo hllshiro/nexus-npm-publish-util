@@ -5,7 +5,7 @@ import {
   type PackageCheckError,
   type PackageRegistryResponse,
 } from '@/types';
-import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser.js';
+import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser';
 
 /**
  * 基于npm registry的包检查器实现

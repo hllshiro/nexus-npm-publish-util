@@ -11,8 +11,8 @@
  */
 
 import type { CliArgs, PublishConfig } from '@/types';
-import { logger } from '@/utils/logger.js';
-import { createPackageManager } from '@/services/package-manager.js';
+import { logger } from '@/utils/logger';
+import { createPackageManager } from '@/services/package-manager';
 
 /**
  * 应用主逻辑类

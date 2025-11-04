@@ -7,7 +7,11 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun run check && bun build --compile --minify --sourcemap --bytecode --outfile dist/pu.exe --target bun src/index.ts",
+    "build": "bun run check && bun run build:bun",
+    "build:bun": "bun build --compile --minify --sourcemap --bytecode --outfile dist/pu.exe --target bun src/index.ts",
+    "build:pkg": "bun run check && bun run compile && pkg dist/index.js --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --output dist/pu",
+    "build:all": "bun run build:bun && bun run build:pkg",
+    "compile": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "format": "bunx prettier --write .",
     "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit",
@@ -56,7 +60,30 @@
     "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.3",
+    "pkg": "^5.8.1",
+    "tsc-alias": "^1.8.10",
+
     "prettier": "3.1.0",
     "typescript": "^5.9.2"
+  },
+  "pkg": {
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "assets": [
+      "node_modules/yargs/locales/**/*",
+      "node_modules/log4js/lib/appenders/**/*",
+      "node_modules/log4js/lib/layouts/**/*"
+    ],
+    "targets": [
+      "node18-win-x64",
+      "node18-linux-x64",
+      "node18-macos-x64"
+    ],
+    "outputPath": "dist",
+    "options": [
+      "--no-bytecode",
+      "--public-packages=*"
+    ]
   }
 }

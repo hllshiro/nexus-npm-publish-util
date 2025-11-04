@@ -13,8 +13,8 @@ import {
   type UploadConfig,
   type UploadResult,
 } from '@/types';
-import { fileLogger, logger } from '@/utils/logger.js';
-import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.js';
+import { fileLogger, logger } from '@/utils/logger';
+import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser';
 
 // 定义错误接口
 interface ErrnoException extends Error {

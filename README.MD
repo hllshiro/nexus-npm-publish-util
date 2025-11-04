@@ -11,12 +11,32 @@ bun install
 # 开发模式运行
 bun run dev
 
-# 构建可执行文件
+# 构建可执行文件（Bun版本，推荐）
 bun run build
 
-# 验证构建
-bun run verify
+# 构建跨平台可执行文件（PKG版本，兼容性更好）
+bun run build:pkg
+
+# 构建所有版本
+bun run build:all
 ```
+
+### 构建选项说明
+
+- **`bun run build`**: 使用Bun构建，生成单个可执行文件（`dist/pu.exe`），性能最佳，但需要目标机器支持Bun运行时
+- **`bun run build:pkg`**: 使用PKG构建，生成跨平台可执行文件：
+  - `dist/pu-win.exe` - Windows版本
+  - `dist/pu-linux` - Linux版本  
+  - `dist/pu-macos` - macOS版本
+  - 兼容性更好，无需安装Node.js或Bun运行时
+- **`bun run build:all`**: 同时构建两个版本，适合需要分发到不同环境的场景
+
+### 技术实现
+
+PKG构建使用以下技术栈：
+- TypeScript编译为CommonJS模块
+- `tsc-alias`解析路径别名（`@/*`映射）
+- PKG打包为独立可执行文件，支持Node.js 18运行时
 
 ## 使用方法
 

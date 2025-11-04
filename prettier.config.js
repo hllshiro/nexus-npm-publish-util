@@ -41,5 +41,12 @@ export default {
         parser: 'babel',
       },
     },
+    {
+      files: '*.json',
+      options: {
+        parser: 'json',
+        trailingComma: 'none',
+      },
+    },
   ],
 };

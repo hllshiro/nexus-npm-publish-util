@@ -6,7 +6,7 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { CliArgs } from '@/types';
-import { parseRegistryUrl } from '@/utils/registry-url-parser.js';
+import { parseRegistryUrl } from '@/utils/registry-url-parser';
 
 /**
  * 解析命令行参数

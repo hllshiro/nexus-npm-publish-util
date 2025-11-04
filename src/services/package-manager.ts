@@ -3,14 +3,14 @@
  * 实现并发控制和任务调度，集成错误处理和进度跟踪
  */
 
-import type { GeneralProgressTracker } from './progress-tracker.js';
-import { FastGlobPackageScanner } from './package-scanner.js';
-import { RegistryPackageChecker } from './package-checker.js';
-import { FetchPackageUploader } from './package-uploader.js';
-import { TarPackageInfoExtractor } from './package-info-extractor.js';
-import { createProgressTracker } from './progress-tracker.js';
-import { logger } from '@/utils/logger.js';
-import { asyncFn } from '@/utils/task.js';
+import type { GeneralProgressTracker } from './progress-tracker';
+import { FastGlobPackageScanner } from './package-scanner';
+import { RegistryPackageChecker } from './package-checker';
+import { FetchPackageUploader } from './package-uploader';
+import { TarPackageInfoExtractor } from './package-info-extractor';
+import { createProgressTracker } from './progress-tracker';
+import { logger } from '@/utils/logger';
+import { asyncFn } from '@/utils/task';
 import ProgressBar from 'progress';
 import type {
   DetailedProgressReport,

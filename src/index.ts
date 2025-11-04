@@ -3,9 +3,9 @@
  * 迁移自 main.js 的 main 函数逻辑
  */
 
-import { parseCliArgs } from '@/core/cli.js';
-import { App } from '@/core/app.js';
-import { logger } from '@/utils/logger.js';
+import { parseCliArgs } from '@/core/cli';
+import { App } from '@/core/app';
+import { logger } from '@/utils/logger';
 
 /**
  * 设置全局错误处理器

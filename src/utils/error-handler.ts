@@ -6,7 +6,7 @@ import type {
   ErrorStatistics,
 } from '@/types';
 import { ErrorType, ErrorSeverity } from '@/types';
-import { logger } from './logger.js';
+import { logger } from './logger';
 
 /**
  * 错误处理工具类

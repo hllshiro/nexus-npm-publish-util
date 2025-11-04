@@ -3,7 +3,7 @@
  */
 
 import { PackageStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
-import { fileLogger, logger } from '@/utils/logger.js';
+import { fileLogger, logger } from '@/utils/logger';
 
 /**
  * 上传进度跟踪器实现

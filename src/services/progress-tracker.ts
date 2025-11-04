@@ -12,7 +12,7 @@ import {
   type ProgressReport,
   type ProgressTracker,
 } from '@/types';
-import { logger } from '@/utils/logger.js';
+import { logger } from '@/utils/logger';
 
 /**
  * 通用进度跟踪器实现

@@ -13,8 +13,8 @@
  */
 
 import type { OperationResult, PublishConfig } from '@/types';
-import { DefaultPackageManager } from './package-manager.js';
-import { logger } from '@/utils/logger.js';
+import { DefaultPackageManager } from './package-manager';
+import { logger } from '@/utils/logger';
 
 /**
  * 封装了优化后的包发布功能，提供简洁的API接口。
