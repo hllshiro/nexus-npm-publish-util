@@ -484,3 +484,19 @@ export interface RegistryUrlInfo {
   /** 完整的registry URL */
   fullUrl: string;
 }
+
+/**
+ * 进度条配置选项
+ */
+export interface ProgressBarOptions {
+  /** 进度条标题 */
+  title: string;
+  /** 总数 */
+  total: number;
+  /** 是否启用颜色 */
+  enableColor?: boolean;
+  /** 进度条宽度 */
+  barWidth?: number;
+  /** 是否启用日志功能 */
+  enableLogging?: boolean;
+}

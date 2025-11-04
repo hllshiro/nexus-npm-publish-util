@@ -11,7 +11,7 @@ import { TarPackageInfoExtractor } from './package-info-extractor.ts';
 import { createProgressTracker } from './progress-tracker.ts';
 import { logger } from '@/utils/logger.ts';
 import { asyncFn } from '@/utils/task.ts';
-import { createEnhancedProgressBar } from '@/utils/progress-bar-enhanced.ts';
+import { createProgressBar } from '@/utils/progress-bar.ts';
 import { createProgressLogger } from '@/utils/progress-logger.ts';
 import type {
   DetailedProgressReport,
@@ -154,7 +154,7 @@ export class DefaultPackageManager implements PackageManager {
       }
 
       // 创建进度条 - 文件信息提取
-      const extractProgressBar = createEnhancedProgressBar({
+      const extractProgressBar = createProgressBar({
         title: 'Scanning',
         total: tgzFiles.length,
         enableColor: true,
@@ -214,7 +214,7 @@ export class DefaultPackageManager implements PackageManager {
     logger.debug('开始检查包存在性', { totalPackages: packageInfoList.length });
 
     // 创建进度条 - 包检查
-    const checkProgressBar = createEnhancedProgressBar({
+    const checkProgressBar = createProgressBar({
       title: 'Checking',
       total: packageInfoList.length,
       enableColor: true,
@@ -321,7 +321,7 @@ export class DefaultPackageManager implements PackageManager {
     logger.debug('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
     // 创建进度条 - 包上传
-    const uploadProgressBar = createEnhancedProgressBar({
+    const uploadProgressBar = createProgressBar({
       title: 'Uploading',
       total: tasksNeedingUpload.length,
       enableColor: true,

@@ -4,8 +4,11 @@
  */
 
 import { Logger } from './logger.ts';
-import type { EnhancedProgressBar } from './progress-bar-enhanced.ts';
 import { LogLevel } from '@/types/index.ts';
+import chalk from 'chalk';
+import process from 'node:process';
+import os from 'node:os';
+import type { ProgressBar } from './progress-bar.ts';
 
 /**
  * 进度条日志适配器类
@@ -13,18 +16,87 @@ import { LogLevel } from '@/types/index.ts';
  */
 export class ProgressLogger {
   private originalLogger: Logger;
-  private progressBar: EnhancedProgressBar | null = null;
+  private progressBar: ProgressBar | null = null;
   private isProgressMode: boolean = false;
+  private colorSupport: boolean;
 
   constructor(logger: Logger) {
     this.originalLogger = logger;
+    this.colorSupport = this.supportsColor();
+  }
+
+  /**
+   * 检测终端是否支持颜色输出
+   * 复用Logger中的颜色检测逻辑
+   */
+  private supportsColor(): boolean {
+    const env = process.env;
+
+    // 1. 明确禁用
+    if (env.NO_COLOR !== undefined || env.NODE_DISABLE_COLORS !== undefined) {
+      return false;
+    }
+
+    // 2. 明确启用
+    if (env.FORCE_COLOR !== undefined) {
+      const val = env.FORCE_COLOR.trim().toLowerCase();
+      if (['', '1', 'true'].includes(val)) return true;
+      const num = Number(val);
+      return !Number.isNaN(num) && num > 0;
+    }
+
+    // 3. dumb 终端无颜色能力
+    const term = env.TERM?.toLowerCase() ?? '';
+    if (term === 'dumb') return false;
+
+    // 4. 明确颜色提示
+    if (
+      term.includes('color') ||
+      term.includes('ansi') ||
+      term.includes('xterm') ||
+      term.includes('vt100') ||
+      term.includes('screen')
+    ) {
+      return true;
+    }
+
+    // 5. COLORTERM 明确提示
+    const colorterm = env.COLORTERM?.toLowerCase() ?? '';
+    if (colorterm.includes('truecolor') || colorterm.includes('24bit')) return true;
+    if (colorterm === 'yes' || colorterm === '1' || colorterm === 'color') return true;
+
+    // 6. Windows 检测
+    if (process.platform === 'win32') {
+      try {
+        if (env.WT_SESSION) return true; // Windows Terminal
+        if (env.TERM_PROGRAM === 'vscode') return true; // VSCode terminal
+        if (env.ANSICON) return true;
+        if (env.ConEmuANSI === 'ON') return true;
+        const [major, , build] = os.release().split('.').map(Number);
+        if ((major && major > 10) || (major === 10 && build && build >= 14393)) return true;
+        return false;
+      } catch {
+        return false;
+      }
+    }
+
+    // 7. CI 环境检测
+    if (env.CI !== undefined) {
+      const colorfulCIs = ['GITHUB_ACTIONS', 'GITLAB_CI', 'TRAVIS', 'CIRCLECI', 'APPVEYOR', 'BUILDKITE'];
+      if (colorfulCIs.some((k) => env[k] !== undefined)) {
+        return true;
+      }
+      return false;
+    }
+
+    return false;
   }
 
   /**
    * 设置进度条实例并启用进度模式
    * @param progressBar 进度条实例
    */
-  setProgressBar(progressBar: EnhancedProgressBar): void {
+  setProgressBar(progressBar: ProgressBar): void {
     this.progressBar = progressBar;
     this.isProgressMode = true;
   }
@@ -38,7 +110,7 @@ export class ProgressLogger {
   }
 
   /**
-   * 格式化日志消息为进度条兼容格式
+   * 格式化日志消息为进度条兼容格式（支持彩色输出）
    * @param level 日志级别
    * @param message 消息内容
    * @param data 附加数据
@@ -47,7 +119,36 @@ export class ProgressLogger {
     const timestamp = this.formatTimestamp();
     const levelText = LogLevel[level].padEnd(5, ' ');
     const dataStr = data ? ` ${JSON.stringify(data)}` : '';
-    return `[${timestamp}][${levelText}] ${message}${dataStr}`;
+
+    // 构建基础消息
+    const baseMessage = `[${timestamp}][${levelText}] ${message}${dataStr}`;
+
+    // 如果支持颜色，应用颜色格式化
+    if (this.colorSupport) {
+      return this.applyColorFormatting(level, baseMessage);
+    }
+
+    return baseMessage;
+  }
+
+  /**
+   * 根据日志级别应用颜色格式化
+   * @param level 日志级别
+   * @param message 消息内容
+   */
+  private applyColorFormatting(level: LogLevel, message: string): string {
+    switch (level) {
+      case LogLevel.DEBUG:
+        return chalk.gray(message);
+      case LogLevel.INFO:
+        return chalk.cyan(message);
+      case LogLevel.WARN:
+        return chalk.yellow(message);
+      case LogLevel.ERROR:
+        return chalk.red(message);
+      default:
+        return message;
+    }
   }
 
   /**
