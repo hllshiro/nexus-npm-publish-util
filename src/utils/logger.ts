@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import { LogLevel } from '@/types';
-import type { LoggerConfig, LogEntry } from '@/types';
+import { LogLevel } from '@/types/index.ts';
+import type { LoggerConfig, LogEntry } from '@/types/index.ts';
 
 /**
  * 类型安全的日志工具类

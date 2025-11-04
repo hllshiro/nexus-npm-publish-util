@@ -1,5 +1,5 @@
 import fg from 'fast-glob';
-import type { PackageScanner } from '@/types';
+import type { PackageScanner } from '@/types/index.ts';
 
 /**
  * 基于fast-glob的包扫描器实现
@@ -71,9 +71,6 @@ export class FastGlobPackageScanner implements PackageScanner {
       const normalizedDirectory = directory.replace(/\\/g, '/');
       const pattern = `${normalizedDirectory}/**/*.tgz`;
 
-      let scannedDirectories = 0;
-      let ignoredPaths = 0;
-
       const files = await fg(pattern, {
         onlyFiles: true,
         absolute: true,
@@ -88,8 +85,8 @@ export class FastGlobPackageScanner implements PackageScanner {
 
       return {
         totalFiles: files.length,
-        scannedDirectories,
-        ignoredPaths,
+        scannedDirectories: 0,
+        ignoredPaths: 0,
       };
     } catch (error) {
       console.error(`获取扫描统计信息失败: ${directory}`, error);

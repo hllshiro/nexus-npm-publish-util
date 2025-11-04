@@ -10,9 +10,10 @@
  * - 支持灵活的配置覆盖和默认值应用
  */
 
-import type { CliArgs, PublishConfig } from '@/types';
-import { logger } from '@/utils/logger';
-import { createPackageManager } from '@/services/package-manager';
+import type { CliArgs, PublishConfig } from '@/types/index.ts';
+import { logger } from '@/utils/logger.ts';
+import { createPackageManager } from '@/services/package-manager.ts';
+import process from 'node:process';
 
 /**
  * 应用主逻辑类

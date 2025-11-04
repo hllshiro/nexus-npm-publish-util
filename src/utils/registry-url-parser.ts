@@ -3,7 +3,7 @@
  * 用于解析CLI中输入的registry参数，提取baseURL和repository信息
  */
 
-import type { RegistryUrlInfo } from '@/types';
+import type { RegistryUrlInfo } from '@/types/index.ts';
 
 /**
  * 解析registry URL，提取baseURL和repository参数

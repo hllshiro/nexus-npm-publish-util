@@ -3,14 +3,14 @@
  * 实现并发控制和任务调度，集成错误处理和进度跟踪
  */
 
-import type { GeneralProgressTracker } from './progress-tracker';
-import { FastGlobPackageScanner } from './package-scanner';
-import { RegistryPackageChecker } from './package-checker';
-import { FetchPackageUploader } from './package-uploader';
-import { TarPackageInfoExtractor } from './package-info-extractor';
-import { createProgressTracker } from './progress-tracker';
-import { logger } from '@/utils/logger';
-import { asyncFn } from '@/utils/task';
+import type { GeneralProgressTracker } from './progress-tracker.ts';
+import { FastGlobPackageScanner } from './package-scanner.ts';
+import { RegistryPackageChecker } from './package-checker.ts';
+import { FetchPackageUploader } from './package-uploader.ts';
+import { TarPackageInfoExtractor } from './package-info-extractor.ts';
+import { createProgressTracker } from './progress-tracker.ts';
+import { logger } from '@/utils/logger.ts';
+import { asyncFn } from '@/utils/task.ts';
 import ProgressBar from 'progress';
 import type {
   DetailedProgressReport,
@@ -25,8 +25,8 @@ import type {
   PublishConfig,
   PublishTask,
   TaskExecutionStats,
-} from '@/types';
-import { PackageStatus } from '@/types';
+} from '@/types/index.ts';
+import { PackageStatus } from '@/types/index.ts';
 
 /**
  * 包管理器实现类

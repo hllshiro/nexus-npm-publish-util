@@ -12,9 +12,9 @@
  * - 实时进度跟踪和结构化日志记录
  */
 
-import type { OperationResult, PublishConfig } from '@/types';
-import { DefaultPackageManager } from './package-manager';
-import { logger } from '@/utils/logger';
+import type { OperationResult, PublishConfig } from '@/types/index.ts';
+import { DefaultPackageManager } from './package-manager.ts';
+import { logger } from '@/utils/logger.ts';
 
 /**
  * 封装了优化后的包发布功能，提供简洁的API接口。
@@ -127,7 +127,7 @@ export function createPublishService(config?: Partial<PublishConfig>): PublishSe
  * @param config 发布配置
  * @returns 发布结果
  */
-export async function publishPackagesOptimized(config: PublishConfig): Promise<OperationResult> {
+export function publishPackagesOptimized(config: PublishConfig): Promise<OperationResult> {
   const service = createPublishService();
   return service.publishPackagesOptimized(config);
 }

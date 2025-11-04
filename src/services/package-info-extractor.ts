@@ -1,7 +1,8 @@
 import * as tar from 'tar';
 // 移除未使用的导入
-import path from 'path';
-import type { PackageInfoExtractor, PackageInfo, TarPackageJson } from '@/types';
+import path from 'node:path';
+import type { PackageInfoExtractor, PackageInfo, TarPackageJson } from '@/types/index.ts';
+import { Buffer } from 'node:buffer';
 
 /**
  * 基于tar库的包信息提取器实现

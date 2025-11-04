@@ -2,8 +2,8 @@
  * 上传进度跟踪器 - 提供详细的上传状态信息和日志记录
  */
 
-import { PackageStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types';
-import { logger } from '@/utils/logger';
+import { PackageStatus, type PackageUploadInfo, type ProgressReport, type ProgressTracker } from '@/types/index.ts';
+import { logger } from '@/utils/logger.ts';
 
 /**
  * 上传进度跟踪器实现

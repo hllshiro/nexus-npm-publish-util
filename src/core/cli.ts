@@ -5,8 +5,9 @@
 
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import type { CliArgs } from '@/types';
-import { parseRegistryUrl } from '@/utils/registry-url-parser';
+import type { CliArgs } from '@/types/index.ts';
+import { parseRegistryUrl } from '@/utils/registry-url-parser.ts';
+import process from 'node:process';
 
 /**
  * 解析命令行参数

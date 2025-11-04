@@ -4,9 +4,9 @@ import type {
   PackageUploadError,
   ErrorClassification,
   ErrorStatistics,
-} from '@/types';
-import { ErrorType, ErrorSeverity } from '@/types';
-import { logger } from './logger';
+} from '@/types/index.ts';
+import { ErrorType, ErrorSeverity } from '@/types/index.ts';
+import { logger } from './logger.ts';
 
 /**
  * 错误处理工具类

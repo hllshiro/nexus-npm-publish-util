@@ -4,8 +4,8 @@ import {
   type PackageCheckerConfig,
   type PackageCheckError,
   type PackageRegistryResponse,
-} from '@/types';
-import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser';
+} from '@/types/index.ts';
+import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser.ts';
 
 /**
  * 基于npm registry的包检查器实现

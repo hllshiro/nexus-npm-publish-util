@@ -12,9 +12,10 @@ import {
   type PackageUploader,
   type UploadConfig,
   type UploadResult,
-} from '@/types';
-import { logger } from '@/utils/logger';
-import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser';
+} from '@/types/index.ts';
+import { logger } from '@/utils/logger.ts';
+import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.ts';
+import { Buffer } from 'node:buffer';
 
 // 定义错误接口
 interface ErrnoException extends Error {
@@ -100,7 +101,7 @@ export class FetchPackageUploader implements PackageUploader {
       const fileBuffer = await this.readFileContent(filePath);
 
       // 创建multipart/form-data
-      const formData = await this.createFormData(fileBuffer, fileName);
+      const formData = this.createFormData(fileBuffer, fileName);
 
       // 执行上传请求
       const result = await this.executeUploadRequest(formData, uploadUrl, auth);
@@ -197,12 +198,13 @@ export class FetchPackageUploader implements PackageUploader {
   /**
    * 创建multipart/form-data表单数据
    */
-  private async createFormData(fileBuffer: Buffer, fileName: string): Promise<FormData> {
+  private createFormData(fileBuffer: Buffer, fileName: string): FormData {
     try {
       const formData = new FormData();
 
       // 创建Blob对象，指定正确的MIME类型
-      const blob = new Blob([fileBuffer], {
+      // 将Buffer转换为Uint8Array以兼容Blob构造函数
+      const blob = new Blob([new Uint8Array(fileBuffer)], {
         type: 'application/x-compressed',
       });
 

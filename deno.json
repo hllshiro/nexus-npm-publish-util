@@ -1,0 +1,58 @@
+{
+  "name": "publish-util",
+  "version": "1.0.0",
+  "exports": "./src/index.ts",
+  "tasks": {
+    "dev": "deno run --watch --allow-all src/index.ts",
+    "start": "deno run --allow-all src/index.ts",
+    "build": "deno task check && deno task build:exe",
+    "build:exe": "deno compile --allow-all --target x86_64-pc-windows-msvc --output dist/pu src/index.ts",
+    "format": "deno fmt",
+    "lint": "deno lint",
+    "typecheck": "deno check src/**/*.ts",
+    "check": "deno task lint && deno task typecheck",
+    "test": "deno test --allow-all",
+    "clean": "deno run --allow-write scripts/clean.ts"
+  },
+  "imports": {
+    "@/": "./src/",
+    "chalk": "npm:chalk@^5.6.2",
+    "fast-glob": "npm:fast-glob@^3.3.3",
+    "log4js": "npm:log4js@^6.9.1",
+    "progress": "npm:progress@^2.0.3",
+    "tar": "npm:tar@^7.5.1",
+    "yargs": "npm:yargs@^17.7.2"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "es2022"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": ["src/", "scripts/"],
+    "exclude": ["dist/", "node_modules/"]
+  },
+  "lint": {
+    "include": ["src/", "scripts/"],
+    "exclude": ["dist/", "node_modules/"],
+    "rules": {
+      "tags": ["recommended"],
+      "include": ["ban-untagged-todo"],
+      "exclude": ["no-unused-vars"]
+    }
+  },
+  "test": {
+    "include": ["src/**/*_test.ts", "tests/**/*.ts"],
+    "exclude": ["dist/"]
+  }
+}

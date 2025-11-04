@@ -11,8 +11,8 @@ import {
   type PhaseStatistics,
   type ProgressReport,
   type ProgressTracker,
-} from '@/types';
-import { logger } from '@/utils/logger';
+} from '@/types/index.ts';
+import { logger } from '@/utils/logger.ts';
 
 /**
  * 通用进度跟踪器实现
