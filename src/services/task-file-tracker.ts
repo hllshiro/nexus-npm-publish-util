@@ -1,4 +1,4 @@
-import type { PackageInfo, TaskFileData, TaskFileTracker } from '@/types/index.ts';
+import type { ExecutionRecord, PackageInfo, TaskFileData, TaskFileTracker } from '@/types/index.ts';
 import { logger } from '@/utils/logger.ts';
 
 /**
@@ -93,6 +93,13 @@ export class DefaultTaskFileTracker implements TaskFileTracker {
       this.processedSet.add(packageKey);
       this.taskFileData.processedPackages.push(packageKey);
     }
+  }
+
+  /**
+   * 设置上一次执行记录
+   */
+  setLastExecution(record: ExecutionRecord): void {
+    this.taskFileData.lastExecution = record;
   }
 
   /**

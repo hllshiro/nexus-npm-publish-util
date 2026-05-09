@@ -51,10 +51,9 @@ export class App {
         publishRegistry: this.config.publishRegistry,
         publishAuth: this.config.publishAuth,
         threadNumber: this.config.threadNumber,
-        // 默认的优化配置
         scanPattern: '**/*.tgz',
-        requestTimeout: 300000, // 5分钟
-        ...(this.config.taskFilePath && { taskFilePath: this.config.taskFilePath }),
+        requestTimeout: 300000,
+        taskFilePath: this.config.taskFilePath,
       };
 
       // 创建包管理器实例
@@ -86,13 +85,15 @@ export class App {
    * 运行应用
    */
   public async run(): Promise<void> {
+    logger.enableFileLogging('./logs');
     logger.debug(`用户指令: ${process.argv.join(' ')}`);
-
     try {
       await this.publishMode();
     } catch (err) {
       logger.error('执行失败', err);
       throw err;
+    } finally {
+      await logger.flushToFile();
     }
   }
 }

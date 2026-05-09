@@ -10,6 +10,8 @@ import type { LoggerConfig, LogEntry } from '@/types/index.ts';
  */
 export class Logger {
   private config: LoggerConfig;
+  private logBuffer: string[] = [];
+  private logFilePath: string | null = null;
 
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
@@ -100,6 +102,32 @@ export class Logger {
           break;
       }
     }
+
+    if (this.config.enableFile) {
+      this.logBuffer.push(formattedMessage);
+    }
+  }
+
+  /**
+   * 启用文件日志，每次执行覆盖写入
+   * @param logDir 日志目录
+   */
+  public enableFileLogging(logDir: string): void {
+    this.config.enableFile = true;
+    this.logFilePath = `${logDir}/publish.log`;
+    Deno.mkdirSync(logDir, { recursive: true });
+  }
+
+  /**
+   * 将缓冲区的日志写入文件
+   */
+  public flushToFile(): Promise<void> {
+    if (!this.logBuffer.length || !this.logFilePath) {
+      return Promise.resolve();
+    }
+    const content = this.logBuffer.join('\n') + '\n';
+    this.logBuffer = [];
+    return Deno.writeTextFile(this.logFilePath, content);
   }
 
   public debug(message: string, data?: unknown): void {

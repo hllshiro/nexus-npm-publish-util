@@ -1,5 +1,5 @@
 /**
- * 发布配置接口
+ * CLI参数接口
  */
 export interface CliArgs {
   publishDir: string;
@@ -7,7 +7,7 @@ export interface CliArgs {
   publishAuth: string;
   threadNumber: number;
   logLevel?: LogLevel;
-  taskFilePath?: string;
+  taskFilePath: string;
 }
 
 /**
@@ -178,6 +178,7 @@ export interface LoggerConfig {
   level: LogLevel;
   enableConsole: boolean;
   enableFile: boolean;
+  logDir?: string;
 }
 
 /**
@@ -501,6 +502,43 @@ export interface ProgressBarOptions {
 }
 
 /**
+ * 单个包的执行结果概要
+ */
+export interface PackageExecutionResult {
+  /** 包标识 (name@version) */
+  packageKey: string;
+  /** 文件名 */
+  fileName: string;
+  /** 最终状态 */
+  status: 'uploaded' | 'skipped' | 'failed';
+  /** 处理耗时（毫秒） */
+  duration: number;
+  /** 失败错误信息 */
+  error?: string;
+  /** HTTP 状态码（上传/检查失败时） */
+  statusCode?: number;
+}
+
+/**
+ * 单次执行记录
+ */
+export interface ExecutionRecord {
+  /** 执行时间 */
+  executedAt: string;
+  /** 总耗时（毫秒） */
+  duration: number;
+  /** 汇总统计 */
+  summary: {
+    total: number;
+    uploaded: number;
+    skipped: number;
+    failed: number;
+  };
+  /** 每个包的执行结果 */
+  packages: PackageExecutionResult[];
+}
+
+/**
  * 任务文件数据结构
  */
 export interface TaskFileData {
@@ -514,6 +552,8 @@ export interface TaskFileData {
   processedPackages: string[];
   /** 文件路径 → 包信息缓存（避免重复解析.tgz） */
   packageCache: Record<string, PackageInfo>;
+  /** 上一次执行记录 */
+  lastExecution?: ExecutionRecord;
 }
 
 /**

@@ -51,8 +51,9 @@ export async function parseCliArgs(): Promise<CliArgs> {
     })
     .option('task-file', {
       alias: 'f',
-      description: 'Task file path for tracking processed packages (enables resume support)',
+      description: 'Task file path for tracking processed packages (default: ./.publish-task.json)',
       type: 'string',
+      default: '.publish-task.json',
     })
     .wrap(80)
     .help()
@@ -99,7 +100,7 @@ export async function parseCliArgs(): Promise<CliArgs> {
     publishRegistry: argv.registry,
     publishAuth: argv.auth,
     logLevel,
-    ...(argv['task-file'] && { taskFilePath: argv['task-file'] as string }),
+    taskFilePath: argv['task-file'] as string,
   };
 
   return result;

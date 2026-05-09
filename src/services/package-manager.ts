@@ -18,6 +18,7 @@ import type {
   DetailedProgressReport,
   OperationResult,
   PackageChecker,
+  PackageExecutionResult,
   PackageInfo,
   PackageInfoExtractor,
   PackageManager,
@@ -41,7 +42,7 @@ interface ResolvedPublishConfig {
   logLevel: LogLevel;
   scanPattern: string;
   requestTimeout: number;
-  taskFilePath?: string;
+  taskFilePath: string;
 }
 
 /**
@@ -67,7 +68,7 @@ export class DefaultPackageManager implements PackageManager {
       logLevel: config.logLevel ?? LogLevel.INFO,
       scanPattern: config.scanPattern ?? '**/*.tgz',
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
-      ...(config.taskFilePath !== undefined && { taskFilePath: config.taskFilePath }),
+      taskFilePath: config.taskFilePath,
     };
 
     // 初始化组件
@@ -137,6 +138,7 @@ export class DefaultPackageManager implements PackageManager {
       const uploadStartTime = Date.now();
       const result = await this.executeUploadTasks(publishTasks, this.config);
       const uploadElapsedTime = Date.now() - uploadStartTime;
+      const totalElapsedTime = Date.now() - startTime;
 
       // 标记已处理的包：成功上传的 + 远端已存在的
       if (this.taskFileTracker) {
@@ -146,11 +148,38 @@ export class DefaultPackageManager implements PackageManager {
             this.taskFileTracker.markAsProcessed(key);
           }
         }
+
+        // 构建执行记录概要
+        const allPackages = this.progressTracker.getAllPackageInfo();
+        const packages: PackageExecutionResult[] = allPackages.map((pkg) => ({
+          packageKey: generatePackageKey(pkg.packageInfo.packageName, pkg.packageInfo.version),
+          fileName: pkg.packageInfo.fileName,
+          status: pkg.status === PackageStatus.COMPLETED
+            ? 'uploaded'
+            : pkg.status === PackageStatus.SKIPPED
+            ? 'skipped'
+            : 'failed',
+          duration: pkg.endTime && pkg.startTime ? pkg.endTime.getTime() - pkg.startTime.getTime() : 0,
+          ...(pkg.error && { error: pkg.error }),
+          ...(pkg.statusCode !== undefined && { statusCode: pkg.statusCode }),
+        }));
+
+        this.taskFileTracker.setLastExecution({
+          executedAt: new Date().toISOString(),
+          duration: totalElapsedTime,
+          summary: {
+            total: packages.length,
+            uploaded: packages.filter((p) => p.status === 'uploaded').length,
+            skipped: packages.filter((p) => p.status === 'skipped').length,
+            failed: packages.filter((p) => p.status === 'failed').length,
+          },
+          packages,
+        });
+
         await this.taskFileTracker.save();
       }
 
       // 生成执行统计
-      const totalElapsedTime = Date.now() - startTime;
       const stats = this.generateExecutionStats(packageInfoList, publishTasks, result, totalElapsedTime, {
         scanning: scanElapsedTime,
         checking: checkElapsedTime,
