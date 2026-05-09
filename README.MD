@@ -7,11 +7,12 @@
 - [Deno](https://deno.land/) 1.40+ 
 - 支持的操作系统：Windows、Linux、macOS
 
-> ！！！已停止维护！！！由于需要适配npm/yarn/pnpm等众多工具，尤其是pnpm难度较大，停用此方案。
-> 替代方案：
-> - 在线环境部署`Verdaccio`
-> - 设置registry指向本地服务，然后使用任何包管理工具安装依赖
-> - 拷贝`Verdaccio`的storage目录到离线环境，通过`Verdaccio`重新发布
+> **私有化部署建议**：本工具仅负责将包发布到私有 registry（已在 Nexus 上测试）。对于包的获取，建议配合 [Verdaccio](https://verdaccio.org/) 使用——它是一个轻量级私有 npm 代理，能缓存并提供更全的包依赖。
+>
+> 典型工作流：
+> 1. 在线环境部署 `Verdaccio`，设置 registry 指向它，用任意包管理工具安装依赖
+> 2. 使用本工具将 `.tgz` 包发布到私有 registry（如 Nexus）
+> 3. 或者不发布，直接拷贝 `Verdaccio` 的 `storage` 目录到私有环境，重新运行 `Verdaccio` 即可提供完整的包服务
 
 ## 安装和构建
 
