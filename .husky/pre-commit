@@ -1,6 +1,0 @@
-echo "🔍 Running pre-commit checks..."
-
-# 运行 lint-staged
-bunx lint-staged
-
-echo "✅ Pre-commit checks passed!"

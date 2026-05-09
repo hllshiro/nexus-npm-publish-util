@@ -1,15 +1,15 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
-import { dirname, join, extname, basename } from 'path';
-import { LogLevel } from '../types/logger.js';
-import type { LoggerConfig, LogEntry } from '../types/logger.js';
+import chalk from 'chalk';
+import { LogLevel } from '@/types/index.ts';
+import type { LoggerConfig, LogEntry } from '@/types/index.ts';
 
 /**
  * 类型安全的日志工具类
+ *
+ * 颜色支持由 chalk 自动检测（包括 Windows VT 模式启用），无需手动判断。
+ * 禁用颜色：设置环境变量 NO_COLOR=1 或 FORCE_COLOR=0
  */
 export class Logger {
   private config: LoggerConfig;
-  private static instance: Logger;
-  private static sharedLogFile: string | undefined;
 
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
@@ -18,96 +18,18 @@ export class Logger {
       enableFile: false,
       ...config,
     };
-
-    // 如果启用文件日志且指定了日志文件路径，确保目录存在并生成时间戳文件名
-    if (this.config.enableFile && this.config.logFile) {
-      // 如果已经有共享的日志文件，使用它；否则生成新的
-      if (Logger.sharedLogFile) {
-        this.config.logFile = Logger.sharedLogFile;
-      } else {
-        this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
-        Logger.sharedLogFile = this.config.logFile;
-      }
-      this.ensureLogDirectory();
-      this.cleanupOldLogFiles();
-    }
   }
 
   /**
-   * 获取单例实例
-   */
-  public static getInstance(config?: Partial<LoggerConfig>): Logger {
-    if (!Logger.instance) {
-      Logger.instance = new Logger(config);
-    }
-    return Logger.instance;
-  }
-
-  /**
-   * 生成带时间戳的日志文件名
-   */
-  private generateTimestampedLogFile(originalPath: string): string {
-    const dir = dirname(originalPath);
-    const ext = extname(originalPath);
-    const name = basename(originalPath, ext);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0];
-    return join(dir, `${name}_${timestamp}${ext}`);
-  }
-
-  /**
-   * 清理旧的日志文件，保持最多10个文件
-   */
-  private cleanupOldLogFiles(): void {
-    if (!this.config.logFile) return;
-
-    const logDir = dirname(this.config.logFile);
-    const originalName = basename(this.config.logFile).split('_')[0] || 'app';
-    const ext = extname(this.config.logFile);
-
-    try {
-      if (!existsSync(logDir)) return;
-
-      const files = readdirSync(logDir)
-        .filter((file) => file.startsWith(originalName) && file.endsWith(ext))
-        .map((file) => ({
-          name: file,
-          path: join(logDir, file),
-          mtime: statSync(join(logDir, file)).mtime,
-        }))
-        .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-
-      // 删除超过10个的旧文件
-      if (files.length > 10) {
-        files.slice(10).forEach((file) => {
-          try {
-            unlinkSync(file.path);
-          } catch (error) {
-            console.error(`Failed to delete old log file ${file.name}:`, error);
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Failed to cleanup old log files:', error);
-    }
-  }
-
-  /**
-   * 确保日志目录存在
-   */
-  private ensureLogDirectory(): void {
-    if (!this.config.logFile) return;
-
-    const logDir = dirname(this.config.logFile);
-    if (!existsSync(logDir)) {
-      mkdirSync(logDir, { recursive: true });
-    }
-  }
-
-  /**
-   * 格式化时间戳
+   * 格式化时间戳为 HH:mm:SS:mmm 格式
    */
   private formatTimestamp(): string {
-    return new Date().toISOString();
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
+    return `${hours}:${minutes}:${seconds}:${milliseconds}`;
   }
 
   /**
@@ -123,127 +45,93 @@ export class Logger {
   }
 
   /**
-   * 格式化日志消息
+   * 格式化日志消息为 [HH:mm:SS][LEVEL] 内容 格式，确保LEVEL对齐
    */
   private formatMessage(entry: LogEntry): string {
     const dataStr = entry.data ? ` ${JSON.stringify(entry.data)}` : '';
-    return `[${entry.timestamp}] ${entry.level}: ${entry.message}${dataStr}`;
+    const paddedLevel = entry.level.padEnd(5, ' ');
+    return `[${entry.timestamp}][${paddedLevel}] ${entry.message}${dataStr}`;
+  }
+
+  /**
+   * 根据日志级别应用颜色格式化
+   * chalk 内部自动检测终端颜色支持（包括 Windows CMD VT 模式）
+   */
+  private formatColoredMessage(level: LogLevel, message: string): string {
+    switch (level) {
+      case LogLevel.DEBUG:
+        return chalk.gray(message);
+      case LogLevel.INFO:
+        return chalk.cyan(message);
+      case LogLevel.WARN:
+        return chalk.yellow(message);
+      case LogLevel.ERROR:
+        return chalk.red(message);
+      default:
+        return message;
+    }
   }
 
   /**
    * 写入日志
    */
   private writeLog(level: LogLevel, message: string, data?: unknown): void {
-    // 检查日志级别
     if (level < this.config.level) {
       return;
     }
 
     const entry = this.createLogEntry(level, message, data);
     const formattedMessage = this.formatMessage(entry);
+    const displayMessage = this.formatColoredMessage(level, formattedMessage);
 
-    // 控制台输出
     if (this.config.enableConsole) {
       switch (level) {
         case LogLevel.DEBUG:
-          console.debug(formattedMessage);
+          console.debug(displayMessage);
           break;
         case LogLevel.INFO:
-          console.info(formattedMessage);
+          console.info(displayMessage);
           break;
         case LogLevel.WARN:
-          console.warn(formattedMessage);
+          console.warn(displayMessage);
           break;
         case LogLevel.ERROR:
-          console.error(formattedMessage);
+          console.error(displayMessage);
           break;
-      }
-    }
-
-    // 文件输出
-    if (this.config.enableFile && this.config.logFile) {
-      try {
-        appendFileSync(this.config.logFile, formattedMessage + '\n', 'utf8');
-      } catch (error) {
-        console.error('Failed to write to log file:', error);
       }
     }
   }
 
-  /**
-   * 调试级别日志
-   */
   public debug(message: string, data?: unknown): void {
     this.writeLog(LogLevel.DEBUG, message, data);
   }
 
-  /**
-   * 信息级别日志
-   */
   public info(message: string, data?: unknown): void {
     this.writeLog(LogLevel.INFO, message, data);
   }
 
-  /**
-   * 警告级别日志
-   */
   public warn(message: string, data?: unknown): void {
     this.writeLog(LogLevel.WARN, message, data);
   }
 
-  /**
-   * 错误级别日志
-   */
   public error(message: string, data?: unknown): void {
     this.writeLog(LogLevel.ERROR, message, data);
   }
 
-  /**
-   * 更新配置
-   */
-  public updateConfig(config: Partial<LoggerConfig>): void {
-    const oldLogFile = this.config.logFile;
-    this.config = { ...this.config, ...config };
-
-    // 只有在日志文件路径发生变化时才重新生成时间戳文件名
-    if (this.config.enableFile && this.config.logFile && this.config.logFile !== oldLogFile) {
-      // 如果已经有共享的日志文件，使用它；否则生成新的
-      if (Logger.sharedLogFile) {
-        this.config.logFile = Logger.sharedLogFile;
-      } else {
-        this.config.logFile = this.generateTimestampedLogFile(this.config.logFile);
-        Logger.sharedLogFile = this.config.logFile;
-      }
-      this.ensureLogDirectory();
-      this.cleanupOldLogFiles();
-    }
+  public setLevel(level: LogLevel): void {
+    this.config.level = level;
   }
 
-  /**
-   * 获取当前配置
-   */
-  public getConfig(): LoggerConfig {
-    return { ...this.config };
+  public getLevel(): LogLevel {
+    return this.config.level;
   }
 }
 
 /**
- * 默认日志实例 - 同时输出到控制台和文件
+ * 默认日志实例 - 仅输出到控制台
  */
-export const logger = Logger.getInstance({
+export const logger = new Logger({
   level: LogLevel.INFO,
   enableConsole: true,
-  enableFile: true,
-  logFile: 'logs/app.log',
-});
-
-/**
- * 文件专用日志实例 - 仅输出到文件
- * 使用相同的日志文件路径，确保两个实例写入同一个文件
- */
-export const fileLogger = new Logger({
-  level: LogLevel.INFO,
-  enableConsole: false,
-  enableFile: true,
-  logFile: 'logs/app.log',
+  enableFile: false,
 });

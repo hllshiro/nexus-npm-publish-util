@@ -1,354 +1,480 @@
-import { logger } from './logger.js'
-import {
-  LpmError,
-  ConfigError,
-  FileError,
-  DownloadError,
+import type {
   PublishError,
-  LockfileError,
-  CliError,
-  NetworkError
-} from './errors.js'
-import { ErrorCode, ErrorSeverity } from '../types/errors.js'
-import type { ErrorContext, ErrorHandlerOptions, ErrorHandlingResult } from '../types/errors.js'
+  PackageCheckError,
+  PackageUploadError,
+  ErrorClassification,
+  ErrorStatistics,
+} from '@/types/index.ts';
+import { ErrorType, ErrorSeverity } from '@/types/index.ts';
+import { logger } from './logger.ts';
 
 /**
- * 统一错误处理器类
+ * 错误处理工具类
+ * 提供统一的错误格式化、分类和日志记录功能
  */
 export class ErrorHandler {
-  private static instance: ErrorHandler
-  private options: ErrorHandlerOptions
+  /**
+   * 格式化错误信息为用户友好的消息
+   * @param error 发布错误对象
+   * @returns 格式化后的错误消息
+   */
+  public static formatError(error: PublishError): string {
+    const baseMessage = `[${error.type}] ${error.message}`;
 
-  constructor(options: ErrorHandlerOptions = {}) {
-    this.options = {
-      logError: true,
-      exitOnCritical: true,
-      showStackTrace: false,
-      suppressConsoleOutput: false,
-      ...options
+    if (error.packageName) {
+      return `包 "${error.packageName}": ${baseMessage}`;
     }
+
+    return baseMessage;
   }
 
   /**
-   * 获取单例实例
+   * 格式化详细错误信息，包含调试信息
+   * @param error 发布错误对象
+   * @returns 详细的错误信息
    */
-  public static getInstance(options?: ErrorHandlerOptions): ErrorHandler {
-    if (!ErrorHandler.instance) {
-      ErrorHandler.instance = new ErrorHandler(options)
-    }
-    return ErrorHandler.instance
-  }
+  public static formatDetailedError(error: PublishError): string {
+    let message = this.formatError(error);
 
-  /**
-   * 处理错误
-   */
-  public handle(error: Error | LpmError, context?: ErrorContext): ErrorHandlingResult {
-    const lpmError = this.normalizeError(error, context)
-
-    // 记录错误日志
-    if (this.options.logError) {
-      this.logError(lpmError)
-    }
-
-    // 显示错误信息
-    if (!this.options.suppressConsoleOutput) {
-      this.displayError(lpmError)
-    }
-
-    // 确定是否需要退出
-    const shouldExit = this.shouldExitProcess(lpmError)
-    const exitCode = this.getExitCode(lpmError)
-
-    return {
-      handled: true,
-      shouldExit,
-      exitCode
-    }
-  }
-
-  /**
-   * 标准化错误对象
-   */
-  private normalizeError(error: Error | LpmError, context?: ErrorContext): LpmError {
-    if (error instanceof LpmError) {
-      // 如果提供了额外的上下文，合并到现有上下文中
-      if (context) {
-        const mergedContext = { ...error.context, ...context }
-        return new LpmError(error.message, error.code, error.severity, mergedContext, error.originalError)
+    // 添加包检查特定信息
+    if (this.isPackageCheckError(error)) {
+      if (error.registryUrl) {
+        message += `\n  注册表URL: ${this.sanitizeUrl(error.registryUrl)}`;
       }
-      return error
+      if (error.version) {
+        message += `\n  版本: ${error.version}`;
+      }
     }
 
-    // 将普通Error转换为LpmError
-    return new LpmError(error.message, ErrorCode.UNKNOWN_ERROR, ErrorSeverity.MEDIUM, context, error)
+    // 添加包上传特定信息
+    if (this.isPackageUploadError(error)) {
+      if (error.uploadUrl) {
+        message += `\n  上传URL: ${this.sanitizeUrl(error.uploadUrl)}`;
+      }
+      if (error.filePath) {
+        message += `\n  文件路径: ${error.filePath}`;
+      }
+      if (error.statusCode) {
+        message += `\n  HTTP状态码: ${error.statusCode}`;
+      }
+      if (error.responseBody) {
+        message += `\n  响应内容: ${this.sanitizeResponseBody(error.responseBody)}`;
+      }
+    }
+
+    // 添加详细信息（如果存在且不敏感）
+    if (error.details) {
+      const sanitizedDetails = this.sanitizeDetails(error.details);
+      if (sanitizedDetails) {
+        message += `\n  详细信息: ${JSON.stringify(sanitizedDetails, null, 2)}`;
+      }
+    }
+
+    return message;
   }
 
   /**
    * 记录错误日志
+   * @param error 发布错误对象
+   * @param context 额外的上下文信息
    */
-  private logError(error: LpmError): void {
-    const logData = {
-      code: error.code,
-      severity: error.severity,
-      context: error.context,
-      timestamp: error.timestamp,
-      stack: this.options.showStackTrace ? error.stack : undefined
-    }
+  public static logError(error: PublishError, context?: string): void {
+    const contextPrefix = context ? `[${context}] ` : '';
+    const errorMessage = `${contextPrefix}${this.formatError(error)}`;
 
-    switch (error.severity) {
-      case ErrorSeverity.LOW:
-        logger.info(error.getFullMessage(), logData)
-        break
-      case ErrorSeverity.MEDIUM:
-        logger.warn(error.getFullMessage(), logData)
-        break
-      case ErrorSeverity.HIGH:
-      case ErrorSeverity.CRITICAL:
-        logger.error(error.getFullMessage(), logData)
-        break
+    // 根据错误类型选择日志级别
+    if (this.isCriticalError(error.type)) {
+      logger.error(errorMessage, this.sanitizeErrorForLogging(error));
+    } else {
+      logger.warn(errorMessage, this.sanitizeErrorForLogging(error));
     }
   }
 
   /**
-   * 显示错误信息
+   * 创建标准化的发布错误对象
+   * @param type 错误类型
+   * @param message 错误消息
+   * @param packageName 包名（可选）
+   * @param details 详细信息（可选）
+   * @returns 发布错误对象
    */
-  private displayError(error: LpmError): void {
-    const prefix = this.getErrorPrefix(error.severity)
-    const message = error.getFullMessage()
+  public static createError(type: ErrorType, message: string, packageName?: string, details?: unknown): PublishError {
+    const error: PublishError = {
+      type,
+      message,
+      details: this.sanitizeDetails(details),
+    };
 
-    switch (error.severity) {
-      case ErrorSeverity.LOW:
-        console.info(`${prefix} ${message}`)
-        break
-      case ErrorSeverity.MEDIUM:
-        console.warn(`${prefix} ${message}`)
-        break
-      case ErrorSeverity.HIGH:
-      case ErrorSeverity.CRITICAL:
-        console.error(`${prefix} ${message}`)
-        break
+    if (packageName) {
+      error.packageName = packageName;
     }
 
-    // 显示堆栈跟踪（如果启用）
-    if (this.options.showStackTrace && error.stack) {
-      console.error(error.stack)
+    return error;
+  }
+
+  /**
+   * 创建包检查错误对象
+   */
+  public static createPackageCheckError(
+    type: PackageCheckError['type'],
+    message: string,
+    packageName: string,
+    version?: string,
+    registryUrl?: string,
+    details?: unknown
+  ): PackageCheckError {
+    const error: PackageCheckError = {
+      type,
+      message,
+      packageName,
+      details: this.sanitizeDetails(details),
+    };
+
+    if (version !== undefined) error.version = version;
+    if (registryUrl !== undefined) error.registryUrl = registryUrl;
+
+    return error;
+  }
+
+  /**
+   * 创建包上传错误对象
+   */
+  public static createPackageUploadError(
+    type: PackageUploadError['type'],
+    message: string,
+    packageName: string,
+    filePath?: string,
+    uploadUrl?: string,
+    statusCode?: number,
+    responseBody?: string,
+    details?: unknown
+  ): PackageUploadError {
+    const error: PackageUploadError = {
+      type,
+      message,
+      packageName,
+      details: this.sanitizeDetails(details),
+    };
+
+    if (filePath !== undefined) error.filePath = filePath;
+    if (uploadUrl !== undefined) error.uploadUrl = uploadUrl;
+    if (statusCode !== undefined) error.statusCode = statusCode;
+    if (responseBody !== undefined) error.responseBody = this.sanitizeResponseBody(responseBody);
+
+    return error;
+  }
+
+  /**
+   * 判断是否为关键错误（需要ERROR级别日志）
+   */
+  private static isCriticalError(errorType: ErrorType): boolean {
+    const criticalErrors = [
+      ErrorType.AUTH_ERROR,
+      ErrorType.FILE_ERROR,
+      ErrorType.UPLOAD_ERROR,
+      ErrorType.MULTIPART_ERROR,
+    ];
+    return criticalErrors.includes(errorType);
+  }
+
+  /**
+   * 类型守卫：检查是否为包检查错误
+   */
+  private static isPackageCheckError(error: PublishError): error is PackageCheckError {
+    return 'registryUrl' in error || 'version' in error;
+  }
+
+  /**
+   * 类型守卫：检查是否为包上传错误
+   */
+  private static isPackageUploadError(error: PublishError): error is PackageUploadError {
+    return 'uploadUrl' in error || 'filePath' in error || 'statusCode' in error;
+  }
+
+  /**
+   * 清理URL中的敏感信息（如认证信息）
+   */
+  private static sanitizeUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      // 移除用户名和密码
+      urlObj.username = '';
+      urlObj.password = '';
+      return urlObj.toString();
+    } catch {
+      // 如果URL格式不正确，返回脱敏后的字符串
+      return url.replace(/\/\/[^@]+@/, '//***@');
     }
   }
 
   /**
-   * 获取错误前缀
+   * 清理响应内容中的敏感信息
    */
-  private getErrorPrefix(severity: ErrorSeverity): string {
-    switch (severity) {
-      case ErrorSeverity.LOW:
-        return '[INFO]'
-      case ErrorSeverity.MEDIUM:
-        return '[WARN]'
-      case ErrorSeverity.HIGH:
-        return '[ERROR]'
-      case ErrorSeverity.CRITICAL:
-        return '[CRITICAL]'
-      default:
-        return '[ERROR]'
+  private static sanitizeResponseBody(responseBody: string): string {
+    // 限制响应内容长度，避免日志过长
+    const maxLength = 1000;
+    let sanitized = responseBody.length > maxLength ? responseBody.substring(0, maxLength) + '...[截断]' : responseBody;
+
+    // 移除可能的敏感信息模式
+    sanitized = sanitized
+      .replace(/("token"|"password"|"auth"|"key")\s*:\s*"[^"]+"/gi, '"$1": "***"')
+      .replace(/authorization:\s*[^\s,}]+/gi, 'authorization: ***')
+      .replace(/bearer\s+[^\s,}]+/gi, 'bearer ***');
+
+    return sanitized;
+  }
+
+  /**
+   * 清理详细信息中的敏感数据
+   */
+  private static sanitizeDetails(details: unknown): unknown {
+    if (!details) return details;
+
+    // 如果是字符串，应用基本的敏感信息过滤
+    if (typeof details === 'string') {
+      return this.sanitizeResponseBody(details);
     }
-  }
 
-  /**
-   * 判断是否应该退出进程
-   */
-  private shouldExitProcess(error: LpmError): boolean {
-    if (!this.options.exitOnCritical) {
-      return false
+    // 如果是对象，递归清理
+    if (typeof details === 'object' && details !== null) {
+      const sanitized: Record<string, unknown> = {};
+
+      for (const [key, value] of Object.entries(details)) {
+        const lowerKey = key.toLowerCase();
+
+        // 敏感字段列表
+        if (
+          lowerKey.includes('token') ||
+          lowerKey.includes('password') ||
+          lowerKey.includes('auth') ||
+          lowerKey.includes('key') ||
+          lowerKey.includes('secret')
+        ) {
+          sanitized[key] = '***';
+        } else if (typeof value === 'string') {
+          sanitized[key] = this.sanitizeResponseBody(value);
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeDetails(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+
+      return sanitized;
     }
 
-    return error.severity === ErrorSeverity.CRITICAL
+    return details;
   }
 
   /**
-   * 获取退出代码
+   * 为日志记录清理错误对象
    */
-  private getExitCode(error: LpmError): number {
-    switch (error.code) {
-      case ErrorCode.INVALID_CONFIG:
-      case ErrorCode.MISSING_REQUIRED_CONFIG:
-      case ErrorCode.CLI_INVALID_ARGUMENT:
-      case ErrorCode.CLI_MISSING_ARGUMENT:
-        return 1 // 配置/参数错误
+  private static sanitizeErrorForLogging(error: PublishError): PublishError {
+    const sanitized: PublishError = {
+      type: error.type,
+      message: error.message,
+      details: this.sanitizeDetails(error.details),
+    };
 
-      case ErrorCode.FILE_NOT_FOUND:
-      case ErrorCode.FILE_READ_ERROR:
-      case ErrorCode.FILE_PERMISSION_ERROR:
-        return 2 // 文件操作错误
-
-      case ErrorCode.DOWNLOAD_FAILED:
-      case ErrorCode.DOWNLOAD_NETWORK_ERROR:
-      case ErrorCode.NETWORK_ERROR:
-        return 3 // 网络相关错误
-
-      case ErrorCode.PUBLISH_FAILED:
-      case ErrorCode.PUBLISH_AUTH_ERROR:
-        return 4 // 发布相关错误
-
-      case ErrorCode.LOCKFILE_PARSE_ERROR:
-      case ErrorCode.LOCKFILE_FORMAT_INVALID:
-        return 5 // 锁文件相关错误
-
-      default:
-        return 1 // 通用错误
+    if (error.packageName) {
+      sanitized.packageName = error.packageName;
     }
-  }
 
-  /**
-   * 更新错误处理选项
-   */
-  public updateOptions(options: Partial<ErrorHandlerOptions>): void {
-    this.options = { ...this.options, ...options }
-  }
+    // 清理包检查错误的特定字段
+    if (this.isPackageCheckError(error)) {
+      const checkError = error as PackageCheckError;
+      const sanitizedCheckError = sanitized as PackageCheckError;
 
-  /**
-   * 获取当前选项
-   */
-  public getOptions(): ErrorHandlerOptions {
-    return { ...this.options }
+      if (checkError.registryUrl) {
+        sanitizedCheckError.registryUrl = this.sanitizeUrl(checkError.registryUrl);
+      }
+      if (checkError.version) {
+        sanitizedCheckError.version = checkError.version;
+      }
+    }
+
+    // 清理包上传错误的特定字段
+    if (this.isPackageUploadError(error)) {
+      const uploadError = error as PackageUploadError;
+      const sanitizedUploadError = sanitized as PackageUploadError;
+
+      if (uploadError.uploadUrl) {
+        sanitizedUploadError.uploadUrl = this.sanitizeUrl(uploadError.uploadUrl);
+      }
+      if (uploadError.filePath) {
+        sanitizedUploadError.filePath = uploadError.filePath;
+      }
+      if (uploadError.statusCode) {
+        sanitizedUploadError.statusCode = uploadError.statusCode;
+      }
+      if (uploadError.responseBody) {
+        sanitizedUploadError.responseBody = this.sanitizeResponseBody(uploadError.responseBody);
+      }
+    }
+
+    return sanitized;
   }
 }
 
 /**
- * 创建特定类型的错误
+ * 错误分类器
+ * 提供错误分类、严重程度评估和统计功能
  */
-export class ErrorFactory {
+export class ErrorClassifier {
+  private static readonly ERROR_CLASSIFICATIONS: Record<ErrorType, ErrorClassification> = {
+    [ErrorType.NETWORK_ERROR]: {
+      type: ErrorType.NETWORK_ERROR,
+      severity: ErrorSeverity.MEDIUM,
+      retryable: true,
+      description: '网络连接错误，通常是临时性问题',
+    },
+    [ErrorType.AUTH_ERROR]: {
+      type: ErrorType.AUTH_ERROR,
+      severity: ErrorSeverity.HIGH,
+      retryable: false,
+      description: '认证失败，需要检查认证信息',
+    },
+    [ErrorType.FILE_ERROR]: {
+      type: ErrorType.FILE_ERROR,
+      severity: ErrorSeverity.HIGH,
+      retryable: false,
+      description: '文件操作错误，需要检查文件权限和路径',
+    },
+    [ErrorType.PARSE_ERROR]: {
+      type: ErrorType.PARSE_ERROR,
+      severity: ErrorSeverity.MEDIUM,
+      retryable: false,
+      description: '数据解析错误，通常是格式问题',
+    },
+    [ErrorType.TIMEOUT_ERROR]: {
+      type: ErrorType.TIMEOUT_ERROR,
+      severity: ErrorSeverity.MEDIUM,
+      retryable: true,
+      description: '请求超时，可能是网络或服务器响应慢',
+    },
+    [ErrorType.REGISTRY_ERROR]: {
+      type: ErrorType.REGISTRY_ERROR,
+      severity: ErrorSeverity.MEDIUM,
+      retryable: true,
+      description: '注册表服务错误，可能是服务器临时问题',
+    },
+    [ErrorType.PACKAGE_NOT_FOUND]: {
+      type: ErrorType.PACKAGE_NOT_FOUND,
+      severity: ErrorSeverity.LOW,
+      retryable: false,
+      description: '包不存在，这通常是正常情况',
+    },
+    [ErrorType.UPLOAD_ERROR]: {
+      type: ErrorType.UPLOAD_ERROR,
+      severity: ErrorSeverity.HIGH,
+      retryable: true,
+      description: '包上传失败，可能是网络或服务器问题',
+    },
+    [ErrorType.MULTIPART_ERROR]: {
+      type: ErrorType.MULTIPART_ERROR,
+      severity: ErrorSeverity.HIGH,
+      retryable: false,
+      description: '文件上传格式错误，需要检查文件格式',
+    },
+  };
+
   /**
-   * 创建配置错误
+   * 获取错误分类信息
    */
-  public static createConfigError(
-    message: string,
-    code: ErrorCode = ErrorCode.INVALID_CONFIG,
-    context?: ErrorContext,
-    originalError?: Error
-  ): ConfigError {
-    return new ConfigError(message, code, context, originalError)
+  public static getClassification(errorType: ErrorType): ErrorClassification {
+    return this.ERROR_CLASSIFICATIONS[errorType];
   }
 
   /**
-   * 创建文件错误
+   * 判断错误是否可重试
    */
-  public static createFileError(
-    message: string,
-    code: ErrorCode = ErrorCode.FILE_READ_ERROR,
-    context?: ErrorContext,
-    originalError?: Error
-  ): FileError {
-    return new FileError(message, code, context, originalError)
+  public static isRetryable(error: PublishError): boolean {
+    return this.getClassification(error.type).retryable;
   }
 
   /**
-   * 创建下载错误
+   * 获取错误严重程度
    */
-  public static createDownloadError(
-    message: string,
-    code: ErrorCode = ErrorCode.DOWNLOAD_FAILED,
-    context?: ErrorContext,
-    originalError?: Error
-  ): DownloadError {
-    return new DownloadError(message, code, context, originalError)
+  public static getSeverity(error: PublishError): ErrorSeverity {
+    return this.getClassification(error.type).severity;
   }
 
   /**
-   * 创建发布错误
+   * 获取用户友好的错误描述
    */
-  public static createPublishError(
-    message: string,
-    code: ErrorCode = ErrorCode.PUBLISH_FAILED,
-    context?: ErrorContext,
-    originalError?: Error
-  ): PublishError {
-    return new PublishError(message, code, context, originalError)
+  public static getDescription(error: PublishError): string {
+    return this.getClassification(error.type).description;
   }
 
   /**
-   * 创建锁文件错误
+   * 计算错误统计信息
    */
-  public static createLockfileError(
-    message: string,
-    code: ErrorCode = ErrorCode.LOCKFILE_PARSE_ERROR,
-    context?: ErrorContext,
-    originalError?: Error
-  ): LockfileError {
-    return new LockfileError(message, code, context, originalError)
+  public static calculateStatistics(errors: PublishError[]): ErrorStatistics {
+    const statistics: ErrorStatistics = {
+      total: errors.length,
+      byType: {} as Record<ErrorType, number>,
+      bySeverity: {} as Record<ErrorSeverity, number>,
+      retryable: 0,
+      nonRetryable: 0,
+    };
+
+    // 初始化计数器
+    Object.values(ErrorType).forEach((type) => {
+      statistics.byType[type] = 0;
+    });
+    Object.values(ErrorSeverity).forEach((severity) => {
+      statistics.bySeverity[severity] = 0;
+    });
+
+    // 统计错误
+    errors.forEach((error) => {
+      const classification = this.getClassification(error.type);
+
+      statistics.byType[error.type]++;
+      statistics.bySeverity[classification.severity]++;
+
+      if (classification.retryable) {
+        statistics.retryable++;
+      } else {
+        statistics.nonRetryable++;
+      }
+    });
+
+    return statistics;
   }
 
   /**
-   * 创建CLI错误
+   * 格式化错误统计报告
    */
-  public static createCliError(
-    message: string,
-    code: ErrorCode = ErrorCode.CLI_INVALID_ARGUMENT,
-    context?: ErrorContext,
-    originalError?: Error
-  ): CliError {
-    return new CliError(message, code, context, originalError)
-  }
-
-  /**
-   * 创建网络错误
-   */
-  public static createNetworkError(
-    message: string,
-    code: ErrorCode = ErrorCode.NETWORK_ERROR,
-    context?: ErrorContext,
-    originalError?: Error
-  ): NetworkError {
-    return new NetworkError(message, code, context, originalError)
-  }
-}
-
-/**
- * 默认错误处理器实例
- */
-export const errorHandler = ErrorHandler.getInstance({
-  logError: true,
-  exitOnCritical: true,
-  showStackTrace: false,
-  suppressConsoleOutput: false
-})
-
-/**
- * 便捷的错误处理函数
- */
-export function handleError(error: Error | LpmError, context?: ErrorContext): ErrorHandlingResult {
-  return errorHandler.handle(error, context)
-}
-
-/**
- * 异步操作错误包装器
- */
-export async function withErrorHandling<T>(operation: () => Promise<T>, context?: ErrorContext): Promise<T> {
-  try {
-    return await operation()
-  } catch (error) {
-    const result = handleError(error as Error, context)
-
-    if (result.shouldExit) {
-      process.exit(result.exitCode)
+  public static formatStatisticsReport(statistics: ErrorStatistics): string {
+    if (statistics.total === 0) {
+      return '没有错误发生';
     }
 
-    throw error
-  }
-}
+    const lines: string[] = [`错误统计报告 (总计: ${statistics.total})`, '='.repeat(40)];
 
-/**
- * 同步操作错误包装器
- */
-export function withErrorHandlingSync<T>(operation: () => T, context?: ErrorContext): T {
-  try {
-    return operation()
-  } catch (error) {
-    const result = handleError(error as Error, context)
+    // 按类型统计
+    lines.push('\n按错误类型:');
+    Object.entries(statistics.byType)
+      .filter(([, count]) => count > 0)
+      .forEach(([type, count]) => {
+        const classification = this.getClassification(type as ErrorType);
+        lines.push(`  ${type}: ${count} (${classification.description})`);
+      });
 
-    if (result.shouldExit) {
-      process.exit(result.exitCode)
-    }
+    // 按严重程度统计
+    lines.push('\n按严重程度:');
+    Object.entries(statistics.bySeverity)
+      .filter(([, count]) => count > 0)
+      .forEach(([severity, count]) => {
+        lines.push(`  ${severity}: ${count}`);
+      });
 
-    throw error
+    // 可重试性统计
+    lines.push('\n可重试性:');
+    lines.push(`  可重试: ${statistics.retryable}`);
+    lines.push(`  不可重试: ${statistics.nonRetryable}`);
+
+    return lines.join('\n');
   }
 }
