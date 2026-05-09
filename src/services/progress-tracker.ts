@@ -13,6 +13,7 @@ import {
   type ProgressTracker,
 } from '@/types/index.ts';
 import { logger } from '@/utils/logger.ts';
+import { SmoothETA } from '@/utils/smooth-eta.ts';
 
 /**
  * 通用进度跟踪器实现
@@ -25,6 +26,7 @@ export class GeneralProgressTracker implements ProgressTracker {
   private packages: Map<string, PackageProcessInfo> = new Map();
   private startTime: Date = new Date();
   private currentOperation: string = '';
+  private readonly smoothETA: SmoothETA = new SmoothETA({ minCompleted: 3 });
 
   /**
    * 初始化跟踪器
@@ -36,6 +38,7 @@ export class GeneralProgressTracker implements ProgressTracker {
     this.failed = 0;
     this.startTime = new Date();
     this.packages.clear();
+    this.smoothETA.reset();
 
     // 初始化所有包的状态 - 使用文件路径作为唯一key
     for (const packageInfo of packages) {
@@ -158,6 +161,9 @@ export class GeneralProgressTracker implements ProgressTracker {
         this.failed++;
       }
     }
+
+    // 记录采样点，用于平滑ETA计算
+    this.smoothETA.addSample(this.completed + this.failed);
   }
 
   /**
@@ -224,13 +230,12 @@ export class GeneralProgressTracker implements ProgressTracker {
     const now = new Date();
     const totalElapsedTime = now.getTime() - this.startTime.getTime();
 
-    // 计算处理速率
+    // 计算处理速率（保留用于报告展示）
     const processedCount = this.completed + this.failed;
     const processingRate = processedCount > 0 ? processedCount / (totalElapsedTime / 1000) : 0;
 
-    // 估算剩余时间
-    const remainingCount = this.total - processedCount;
-    const estimatedRemainingTime = processingRate > 0 ? Math.ceil(remainingCount / processingRate) : 0;
+    // 使用平滑ETA算法估算剩余时间，避免跳变
+    const estimatedRemainingTime = this.smoothETA.getETA(this.total) ?? 0;
 
     // 计算各阶段统计
     const phaseStatistics = this.calculatePhaseStatistics();

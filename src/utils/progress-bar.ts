@@ -7,6 +7,7 @@ import * as cliProgress from 'cli-progress';
 import chalk from 'chalk';
 import process from 'node:process';
 import type { ProgressBarOptions } from '@/types/index.ts';
+import { SmoothETA } from './smooth-eta.ts';
 
 /**
  * 检测终端是否支持进度条显示
@@ -41,6 +42,7 @@ export class ProgressBar {
   private options: Required<ProgressBarOptions>;
   private isActive: boolean = false;
   private supportsProgress: boolean;
+  private readonly smoothETA: SmoothETA;
 
   constructor(options: ProgressBarOptions) {
     this.options = {
@@ -51,6 +53,7 @@ export class ProgressBar {
       enableLogging: options.enableLogging ?? true,
     };
     this.supportsProgress = supportsProgressBar();
+    this.smoothETA = new SmoothETA({ minCompleted: 3 });
   }
 
   /**
@@ -61,10 +64,13 @@ export class ProgressBar {
       return;
     }
 
-    // 配置进度条样式
+    // 重置ETA计算器状态
+    this.smoothETA.reset();
+
+    // 配置进度条样式 - 使用自定义smoothETA替代cli-progress内置eta，消除跳变
     const format = this.options.enableColor
-      ? `${chalk.cyan(this.options.title)} ${chalk.green('[{bar}]')} {percentage}% | {value}/{total} | ETA: {eta}s`
-      : `${this.options.title} [{bar}] {percentage}% | {value}/{total} | ETA: {eta}s`;
+      ? `${chalk.cyan(this.options.title)} ${chalk.green('[{bar}]')} {percentage}% | {value}/{total} | ETA: {smoothETA}`
+      : `${this.options.title} [{bar}] {percentage}% | {value}/{total} | ETA: {smoothETA}`;
 
     const barConfig = {
       format,
@@ -97,7 +103,9 @@ export class ProgressBar {
       return;
     }
 
-    this.progressBar.update(current, payload);
+    this.smoothETA.addSample(current);
+    const smoothETA = this.smoothETA.formatETA(this.options.total);
+    this.progressBar.update(current, { ...payload, smoothETA });
   }
 
   /**
@@ -110,7 +118,10 @@ export class ProgressBar {
       return;
     }
 
-    this.progressBar.increment(increment, payload);
+    const currentValue = this.progressBar.value + increment;
+    this.smoothETA.addSample(currentValue);
+    const smoothETA = this.smoothETA.formatETA(this.options.total);
+    this.progressBar.increment(increment, { ...payload, smoothETA });
   }
 
   /**
