@@ -1,6 +1,6 @@
 {
   "name": "publish-util",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "exports": "./src/index.ts",
   "tasks": {
     "dev": "deno run --watch --allow-all src/index.ts",
@@ -52,7 +52,7 @@
     }
   },
   "test": {
-    "include": ["src/**/*_test.ts", "tests/**/*.ts"],
+    "include": ["src/**/*_test.ts", "src/**/*.test.ts", "tests/**/*.ts"],
     "exclude": ["dist/"]
   }
 }
