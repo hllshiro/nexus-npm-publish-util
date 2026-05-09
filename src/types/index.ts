@@ -7,6 +7,7 @@ export interface CliArgs {
   publishAuth: string;
   threadNumber: number;
   logLevel?: LogLevel;
+  taskFilePath?: string;
 }
 
 /**
@@ -17,8 +18,6 @@ export interface PublishConfig extends CliArgs {
   scanPattern?: string;
   /** HTTP请求超时时间（毫秒） */
   requestTimeout?: number;
-  /** 连接超时时间（毫秒） */
-  connectTimeout?: number;
 }
 
 /**
@@ -69,7 +68,7 @@ export interface ProgressTracker {
       statusCode?: number;
       needsUpload?: boolean;
       statusDetail?: string;
-    }
+    },
   ): void;
   getProgressReport(): ProgressReport;
 }
@@ -343,17 +342,18 @@ export interface TaskExecutionStats {
  * 基础网络配置接口
  */
 export interface BaseNetworkConfig {
-  /** 连接超时时间（毫秒） */
-  connectTimeout?: number;
   /** 请求超时时间（毫秒） */
   requestTimeout?: number;
 }
 
 /**
  * 包检查配置接口（继承基础网络配置）
- * 默认值：connectTimeout=10秒，requestTimeout=30秒
+ * 默认值：requestTimeout=30秒
  */
-export type PackageCheckerConfig = BaseNetworkConfig;
+export interface PackageCheckerConfig extends BaseNetworkConfig {
+  /** 认证信息 (username:password格式) */
+  auth?: string;
+}
 
 /**
  * 上传配置接口
@@ -361,7 +361,6 @@ export type PackageCheckerConfig = BaseNetworkConfig;
 export interface UploadConfig extends BaseNetworkConfig {
   /** 进度跟踪器实例（可选） */
   progressTracker?: ProgressTracker;
-  // 继承基础网络配置，默认值：connectTimeout=30秒，requestTimeout=300秒
 }
 
 /**
@@ -499,4 +498,68 @@ export interface ProgressBarOptions {
   barWidth?: number;
   /** 是否启用日志功能 */
   enableLogging?: boolean;
+}
+
+/**
+ * 任务文件数据结构
+ */
+export interface TaskFileData {
+  /** 文件格式版本 */
+  version: string;
+  /** 创建时间 */
+  createdAt: string;
+  /** 最后更新时间 */
+  updatedAt: string;
+  /** 已处理包的唯一标识列表 */
+  processedPackages: string[];
+  /** 文件路径 → 包信息缓存（避免重复解析.tgz） */
+  packageCache: Record<string, PackageInfo>;
+}
+
+/**
+ * 任务文件跟踪器接口
+ */
+export interface TaskFileTracker {
+  /**
+   * 初始化跟踪器，加载现有任务文件
+   * @param taskFilePath 任务文件路径
+   */
+  initialize(taskFilePath: string): Promise<void>;
+
+  /**
+   * 检查包是否已被处理
+   * @param packageKey 包的唯一标识
+   * @returns 是否已处理
+   */
+  isProcessed(packageKey: string): boolean;
+
+  /**
+   * 标记包为已处理
+   * @param packageKey 包的唯一标识
+   */
+  markAsProcessed(packageKey: string): void;
+
+  /**
+   * 保存任务文件
+   */
+  save(): Promise<void>;
+
+  /**
+   * 获取已处理包的数量
+   */
+  getProcessedCount(): number;
+
+  /**
+   * 获取缓存的包信息
+   * @param filePath 文件路径
+   * @returns 缓存的包信息，不存在则返回 null
+   */
+  getCachedPackageInfo(filePath: string): PackageInfo | null;
+
+  /**
+   * 缓存包信息
+   * @param filePath 文件路径
+   * @param info 包信息
+   */
+  setCachedPackageInfo(filePath: string, info: PackageInfo): void;
 }

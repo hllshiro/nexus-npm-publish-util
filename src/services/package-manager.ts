@@ -9,6 +9,7 @@ import { RegistryPackageChecker } from './package-checker.ts';
 import { FetchPackageUploader } from './package-uploader.ts';
 import { TarPackageInfoExtractor } from './package-info-extractor.ts';
 import { createProgressTracker } from './progress-tracker.ts';
+import { DefaultTaskFileTracker, generatePackageKey } from './task-file-tracker.ts';
 import { logger } from '@/utils/logger.ts';
 import { asyncFn } from '@/utils/task.ts';
 import { createProgressBar } from '@/utils/progress-bar.ts';
@@ -30,16 +31,31 @@ import type {
 import { LogLevel, PackageStatus } from '@/types/index.ts';
 
 /**
+ * 包管理器内部配置（所有字段已填充默认值）
+ */
+interface ResolvedPublishConfig {
+  publishDir: string;
+  publishRegistry: string;
+  publishAuth: string;
+  threadNumber: number;
+  logLevel: LogLevel;
+  scanPattern: string;
+  requestTimeout: number;
+  taskFilePath?: string;
+}
+
+/**
  * 包管理器实现类
  */
 export class DefaultPackageManager implements PackageManager {
-  private readonly config: Required<PublishConfig>;
+  private readonly config: ResolvedPublishConfig;
   private readonly scanner: PackageScanner;
   private readonly checker: PackageChecker;
   private readonly uploader: PackageUploader;
   private readonly extractor: PackageInfoExtractor;
   private readonly progressTracker: GeneralProgressTracker;
   private readonly progressLogger = createProgressLogger(logger);
+  private readonly taskFileTracker: DefaultTaskFileTracker | null = null;
 
   constructor(config: PublishConfig) {
     // 设置默认配置
@@ -51,45 +67,54 @@ export class DefaultPackageManager implements PackageManager {
       logLevel: config.logLevel ?? LogLevel.INFO,
       scanPattern: config.scanPattern ?? '**/*.tgz',
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
-      connectTimeout: config.connectTimeout ?? 30000, // 30秒
+      ...(config.taskFilePath !== undefined && { taskFilePath: config.taskFilePath }),
     };
 
     // 初始化组件
     this.scanner = new FastGlobPackageScanner();
     this.checker = new RegistryPackageChecker({
-      connectTimeout: this.config.connectTimeout,
       requestTimeout: this.config.requestTimeout,
+      auth: this.config.publishAuth,
     });
     this.uploader = new FetchPackageUploader({
       requestTimeout: this.config.requestTimeout,
-      connectTimeout: this.config.connectTimeout,
     });
     this.extractor = new TarPackageInfoExtractor();
     this.progressTracker = createProgressTracker();
+
+    // 初始化任务文件跟踪器
+    if (this.config.taskFilePath) {
+      this.taskFileTracker = new DefaultTaskFileTracker();
+    }
 
     logger.debug('包管理器初始化完成', {
       publishDir: this.config.publishDir,
       publishRegistry: this.config.publishRegistry,
       threadNumber: this.config.threadNumber,
+      taskFilePath: this.config.taskFilePath,
     });
   }
 
   /**
    * 执行完整的发布流程
-   * @param config 发布配置（可选，用于覆盖构造函数配置）
    * @returns 操作结果
    */
   async publishPackages(): Promise<OperationResult> {
     const startTime = Date.now();
 
     try {
-      // 阶段1: 扫描包文件
+      // 初始化任务文件跟踪器
+      if (this.taskFileTracker && this.config.taskFilePath) {
+        await this.taskFileTracker.initialize(this.config.taskFilePath);
+      }
+
+      // 阶段1: 扫描包文件（使用缓存跳过已处理包，避免重复解析.tgz）
       const scanStartTime = Date.now();
       const packageInfoList = await this.scanAndExtractPackages(this.config.publishDir);
       const scanElapsedTime = Date.now() - scanStartTime;
 
       if (packageInfoList.length === 0) {
-        logger.warn('未找到任何.tgz包文件', { publishDir: this.config.publishDir });
+        logger.warn('未找到任何待处理的.tgz包文件', { publishDir: this.config.publishDir });
         return { success: 0, failed: [] };
       }
 
@@ -103,7 +128,7 @@ export class DefaultPackageManager implements PackageManager {
         });
       }
 
-      // 阶段2: 检查包存在性（如果未跳过）
+      // 阶段2: 检查包存在性
       const checkStartTime = Date.now();
       const publishTasks = await this.checkPackageExistence(packageInfoList, this.config);
       const checkElapsedTime = Date.now() - checkStartTime;
@@ -112,6 +137,17 @@ export class DefaultPackageManager implements PackageManager {
       const uploadStartTime = Date.now();
       const result = await this.executeUploadTasks(publishTasks, this.config);
       const uploadElapsedTime = Date.now() - uploadStartTime;
+
+      // 标记已处理的包：成功上传的 + 远端已存在的
+      if (this.taskFileTracker) {
+        for (const task of publishTasks) {
+          const key = generatePackageKey(task.packageInfo.packageName, task.packageInfo.version);
+          if (task.uploadResult?.success || !task.needsUpload) {
+            this.taskFileTracker.markAsProcessed(key);
+          }
+        }
+        await this.taskFileTracker.save();
+      }
 
       // 生成执行统计
       const totalElapsedTime = Date.now() - startTime;
@@ -138,14 +174,17 @@ export class DefaultPackageManager implements PackageManager {
 
   /**
    * 扫描并提取包信息
-   * @param publishDir 发布目录
-   * @returns 包信息列表
+   *
+   * 优化策略：
+   * 1. 扫描所有 .tgz 文件
+   * 2. 对于已处理的包（任务文件记录），直接跳过，不解析 .tgz
+   * 3. 对于缓存中有包信息的包，直接使用缓存，不解析 .tgz
+   * 4. 仅对未缓存的包执行 tar 解析，并将结果写入缓存
    */
   private async scanAndExtractPackages(publishDir: string): Promise<PackageInfo[]> {
     logger.debug('开始扫描包文件', { publishDir });
 
     try {
-      // 扫描.tgz文件
       const tgzFiles = await this.scanner.scanPackages(publishDir);
       logger.info(`扫描到 ${tgzFiles.length} 个.tgz文件`);
 
@@ -153,45 +192,71 @@ export class DefaultPackageManager implements PackageManager {
         return [];
       }
 
-      // 创建进度条 - 文件信息提取
-      const extractProgressBar = createProgressBar({
-        title: 'Scanning',
-        total: tgzFiles.length,
-        enableColor: true,
-        barWidth: 40,
-        enableLogging: true,
-      });
-      extractProgressBar.start();
+      // 分类：已处理(跳过) / 缓存命中(无需解析) / 未缓存(需要解析)
+      const toExtract: string[] = [];
+      const cachedInfos: PackageInfo[] = [];
+      let skippedProcessed = 0;
 
-      // 设置进度条日志模式
-      this.progressLogger.setProgressBar(extractProgressBar);
-
-      // 提取包信息
-      const packageInfoList: PackageInfo[] = [];
-
-      // 使用并发控制提取包信息
-      await asyncFn(
-        tgzFiles,
-        async (filePath: string) => {
-          const packageInfo = await this.extractor.extractPackageInfo(filePath);
-          if (packageInfo) {
-            packageInfoList.push(packageInfo);
-          } else {
-            this.progressLogger.warn(`无法提取包信息: ${filePath}`);
+      for (const filePath of tgzFiles) {
+        // 检查缓存
+        const cached = this.taskFileTracker?.getCachedPackageInfo(filePath);
+        if (cached) {
+          // 缓存命中，检查是否已处理
+          const key = generatePackageKey(cached.packageName, cached.version);
+          if (this.taskFileTracker?.isProcessed(key)) {
+            skippedProcessed++;
+            continue;
           }
+          // 未处理，使用缓存信息
+          cachedInfos.push(cached);
+          continue;
+        }
+        // 未缓存，需要解析
+        toExtract.push(filePath);
+      }
 
-          // 更新进度条
-          extractProgressBar.increment();
-        },
-        Math.min(this.config.threadNumber, 10) // 限制并发数，避免文件系统过载
-      );
+      if (skippedProcessed > 0) {
+        logger.info(`跳过 ${skippedProcessed} 个已处理的包（使用缓存，无需解析.tgz）`);
+      }
+      if (cachedInfos.length > 0) {
+        logger.info(`从缓存加载 ${cachedInfos.length} 个包信息（无需解析.tgz）`);
+      }
+      logger.info(`需要解析 ${toExtract.length} 个.tgz文件`);
 
-      // 停止进度条并清除进度日志模式
-      extractProgressBar.stop();
-      this.progressLogger.clearProgressBar();
+      // 对未缓存的文件执行 tar 解析
+      if (toExtract.length > 0) {
+        const extractProgressBar = createProgressBar({
+          title: 'Scanning',
+          total: toExtract.length,
+          enableColor: true,
+          barWidth: 40,
+          enableLogging: true,
+        });
+        extractProgressBar.start();
+        this.progressLogger.setProgressBar(extractProgressBar);
 
-      logger.info(`成功提取 ${packageInfoList.length} 个包的信息`);
-      return packageInfoList;
+        await asyncFn(
+          toExtract,
+          async (filePath: string) => {
+            const packageInfo = await this.extractor.extractPackageInfo(filePath);
+            if (packageInfo) {
+              cachedInfos.push(packageInfo);
+              // 写入缓存
+              this.taskFileTracker?.setCachedPackageInfo(filePath, packageInfo);
+            } else {
+              this.progressLogger.warn(`无法提取包信息: ${filePath}`);
+            }
+            extractProgressBar.increment();
+          },
+          Math.min(this.config.threadNumber, 10)
+        );
+
+        extractProgressBar.stop();
+        this.progressLogger.clearProgressBar();
+      }
+
+      logger.info(`共 ${cachedInfos.length} 个包待处理`);
+      return cachedInfos;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('扫描包文件失败', { error: errorMessage, publishDir });
@@ -201,19 +266,15 @@ export class DefaultPackageManager implements PackageManager {
 
   /**
    * 检查包存在性
-   * @param packageInfoList 包信息列表
-   * @param config 配置
-   * @returns 发布任务列表
    */
   private async checkPackageExistence(
     packageInfoList: PackageInfo[],
-    config: Required<PublishConfig>
+    config: ResolvedPublishConfig
   ): Promise<PublishTask[]> {
     const publishTasks: PublishTask[] = [];
 
     logger.debug('开始检查包存在性', { totalPackages: packageInfoList.length });
 
-    // 创建进度条 - 包检查
     const checkProgressBar = createProgressBar({
       title: 'Checking',
       total: packageInfoList.length,
@@ -223,10 +284,8 @@ export class DefaultPackageManager implements PackageManager {
     });
     checkProgressBar.start();
 
-    // 设置进度条日志模式
     this.progressLogger.setProgressBar(checkProgressBar);
 
-    // 使用并发控制检查包存在性
     await asyncFn(
       packageInfoList,
       async (packageInfo: PackageInfo) => {
@@ -247,15 +306,12 @@ export class DefaultPackageManager implements PackageManager {
             needsUpload,
           });
 
-          // 更新进度跟踪器状态
           if (exists) {
-            // 包已存在，标记为跳过 - 使用特殊的skipped状态
             this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.SKIPPED, {
               needsUpload: false,
               statusDetail: '包已存在，跳过上传',
             });
           } else {
-            // 包不存在，需要上传，但此时还未开始上传，保持checking状态
             this.progressTracker.updateProgress(packageInfo.filePath, PackageStatus.CHECKING, {
               needsUpload: true,
               statusDetail: '包不存在，需要上传',
@@ -265,7 +321,6 @@ export class DefaultPackageManager implements PackageManager {
           const errorMessage = error instanceof Error ? error.message : String(error);
           this.progressLogger.error(`检查包存在性失败: ${packageInfo.packageName}`, { error: errorMessage });
 
-          // 检查失败时，默认需要上传
           publishTasks.push({
             packageInfo,
             needsUpload: true,
@@ -277,13 +332,11 @@ export class DefaultPackageManager implements PackageManager {
           });
         }
 
-        // 更新进度条
         checkProgressBar.increment();
       },
       this.config.threadNumber
     );
 
-    // 停止进度条并清除进度日志模式
     checkProgressBar.stop();
     this.progressLogger.clearProgressBar();
 
@@ -301,13 +354,10 @@ export class DefaultPackageManager implements PackageManager {
 
   /**
    * 执行上传任务
-   * @param publishTasks 发布任务列表
-   * @param config 配置
-   * @returns 操作结果
    */
   private async executeUploadTasks(
     publishTasks: PublishTask[],
-    config: Required<PublishConfig>
+    config: ResolvedPublishConfig
   ): Promise<OperationResult> {
     const tasksNeedingUpload = publishTasks.filter((task) => task.needsUpload);
 
@@ -320,7 +370,6 @@ export class DefaultPackageManager implements PackageManager {
 
     logger.debug('开始执行上传任务', { totalTasks: tasksNeedingUpload.length });
 
-    // 创建进度条 - 包上传
     const uploadProgressBar = createProgressBar({
       title: 'Uploading',
       total: tasksNeedingUpload.length,
@@ -330,7 +379,6 @@ export class DefaultPackageManager implements PackageManager {
     });
     uploadProgressBar.start();
 
-    // 设置进度条日志模式
     this.progressLogger.setProgressBar(uploadProgressBar);
 
     const result: OperationResult = {
@@ -338,7 +386,6 @@ export class DefaultPackageManager implements PackageManager {
       failed: [],
     };
 
-    // 使用并发控制执行上传
     await asyncFn(
       tasksNeedingUpload,
       async (task: PublishTask) => {
@@ -395,13 +442,11 @@ export class DefaultPackageManager implements PackageManager {
           });
         }
 
-        // 更新进度条
         uploadProgressBar.increment();
       },
       this.config.threadNumber
     );
 
-    // 停止进度条并清除进度日志模式
     uploadProgressBar.stop();
     this.progressLogger.clearProgressBar();
 
@@ -443,7 +488,6 @@ export class DefaultPackageManager implements PackageManager {
    * 记录最终报告
    */
   private logFinalReport(stats: TaskExecutionStats): void {
-    // 从进度跟踪器获取准确的统计数据
     const allPackages = this.progressTracker.getAllPackageInfo();
     let actualSuccessfulUploads = 0;
     let actualFailedPackages = 0;
@@ -451,21 +495,17 @@ export class DefaultPackageManager implements PackageManager {
 
     for (const packageInfo of allPackages) {
       if (packageInfo.status === PackageStatus.COMPLETED) {
-        // 包被成功上传
         actualSuccessfulUploads++;
       } else if (packageInfo.status === PackageStatus.SKIPPED) {
-        // 包已存在，被跳过
         actualSkippedPackages++;
       } else if (packageInfo.status === PackageStatus.FAILED) {
         actualFailedPackages++;
       }
     }
 
-    // 先输出进度跟踪器的详细报告
     const finalReport = this.progressTracker.generateFinalReport();
     logger.info('\n' + finalReport + '\n');
 
-    // 输出详细的各阶段耗时信息
     const finish = [
       '=== 各阶段耗时 ===',
       `扫描阶段: ${Math.round(stats.phaseTimings.scanning / 1000)}秒`,
@@ -506,10 +546,3 @@ export class DefaultPackageManager implements PackageManager {
 export function createPackageManager(config: PublishConfig): PackageManager {
   return new DefaultPackageManager(config);
 }
-
-/**
- * 默认包管理器实例工厂
- */
-export const packageManagerFactory = {
-  create: (config: PublishConfig): PackageManager => new DefaultPackageManager(config),
-};

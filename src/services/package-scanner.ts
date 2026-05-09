@@ -42,59 +42,5 @@ export class FastGlobPackageScanner implements PackageScanner {
     }
   }
 
-  /**
-   * 验证目录是否存在且可访问
-   * @param directory 目录路径
-   * @returns 是否有效
-   */
-  async validateDirectory(directory: string): Promise<boolean> {
-    try {
-      const fs = await import('fs/promises');
-      const stat = await fs.stat(directory);
-      return stat.isDirectory();
-    } catch {
-      return false;
-    }
-  }
 
-  /**
-   * 获取扫描统计信息
-   * @param directory 扫描目录
-   * @returns 统计信息
-   */
-  async getScanStats(directory: string): Promise<{
-    totalFiles: number;
-    scannedDirectories: number;
-    ignoredPaths: number;
-  }> {
-    try {
-      const normalizedDirectory = directory.replace(/\\/g, '/');
-      const pattern = `${normalizedDirectory}/**/*.tgz`;
-
-      const files = await fg(pattern, {
-        onlyFiles: true,
-        absolute: true,
-        unique: true,
-        followSymbolicLinks: false,
-        suppressErrors: true,
-        ignore: ['**/node_modules/**', '**/.git/**', '**/.*/**', '**/temp/**', '**/tmp/**'],
-        dot: false,
-        stats: true,
-        onlyDirectories: false,
-      });
-
-      return {
-        totalFiles: files.length,
-        scannedDirectories: 0,
-        ignoredPaths: 0,
-      };
-    } catch (error) {
-      console.error(`获取扫描统计信息失败: ${directory}`, error);
-      return {
-        totalFiles: 0,
-        scannedDirectories: 0,
-        ignoredPaths: 0,
-      };
-    }
-  }
 }

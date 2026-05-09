@@ -9,13 +9,15 @@ import type { CliArgs } from '@/types/index.ts';
 import { LogLevel } from '@/types/index.ts';
 import { parseRegistryUrl } from '@/utils/registry-url-parser.ts';
 import process from 'node:process';
+import denoJson from '../../deno.json' with { type: 'json' };
 
 /**
  * 解析命令行参数
  * @returns 解析后的CLI参数
  */
-export function parseCliArgs(): CliArgs {
-  const argv = yargs(hideBin(process.argv))
+export async function parseCliArgs(): Promise<CliArgs> {
+  const argv = await yargs(hideBin(process.argv))
+    .version(denoJson.version)
     .option('dir', {
       alias: 'd',
       description: 'Directory with packages to publish',
@@ -47,9 +49,14 @@ export function parseCliArgs(): CliArgs {
       choices: ['debug', 'info', 'warn', 'error'],
       default: 'info',
     })
+    .option('task-file', {
+      alias: 'f',
+      description: 'Task file path for tracking processed packages (enables resume support)',
+      type: 'string',
+    })
     .wrap(80)
     .help()
-    .parseSync();
+    .parse();
 
   // 验证registry URL格式
   try {
@@ -92,6 +99,7 @@ export function parseCliArgs(): CliArgs {
     publishRegistry: argv.registry,
     publishAuth: argv.auth,
     logLevel,
+    ...(argv['task-file'] && { taskFilePath: argv['task-file'] as string }),
   };
 
   return result;

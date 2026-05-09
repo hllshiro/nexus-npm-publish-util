@@ -54,7 +54,7 @@ export class App {
         // 默认的优化配置
         scanPattern: '**/*.tgz',
         requestTimeout: 300000, // 5分钟
-        connectTimeout: 30000, // 30秒
+        ...(this.config.taskFilePath && { taskFilePath: this.config.taskFilePath }),
       };
 
       // 创建包管理器实例

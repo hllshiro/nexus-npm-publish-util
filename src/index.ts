@@ -40,7 +40,11 @@ function setupGlobalErrorHandlers(): void {
 setupGlobalErrorHandlers();
 
 // 解析CLI参数
-const cliArgs = parseCliArgs();
+const cliArgs = await parseCliArgs();
 
 // 创建应用实例并运行
-new App(cliArgs).run();
+try {
+  await new App(cliArgs).run();
+} catch {
+  process.exit(1);
+}

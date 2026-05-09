@@ -13,8 +13,9 @@ import {
   type UploadConfig,
   type UploadResult,
 } from '@/types/index.ts';
-import { logger } from '@/utils/logger.ts';
 import { buildUploadUrlFromRegistry } from '@/utils/registry-url-parser.ts';
+import { ErrorHandler, ErrorClassifier } from '@/utils/error-handler.ts';
+import { withRetry } from '@/utils/retry.ts';
 import { Buffer } from 'node:buffer';
 
 // 定义错误接口
@@ -34,7 +35,6 @@ export class FetchPackageUploader implements PackageUploader {
   constructor(config: UploadConfig = {}) {
     this.config = {
       requestTimeout: config.requestTimeout ?? 300000, // 5分钟
-      connectTimeout: config.connectTimeout ?? 30000, // 30秒
       ...(config.progressTracker && { progressTracker: config.progressTracker }),
     };
   }
@@ -50,29 +50,28 @@ export class FetchPackageUploader implements PackageUploader {
     const fileName = basename(filePath);
 
     try {
-      // 构建实际的上传URL
       const uploadUrl = buildUploadUrlFromRegistry(registryUrl);
 
-      // 更新进度跟踪器 - 开始上传
       if (this.config.progressTracker) {
-        // 注意：如果使用 UploadProgressTracker，可以通过其 setPackageFileSize 方法设置文件大小
-        // 这里为了类型安全，我们跳过这个可选功能
         this.config.progressTracker.updateProgress(filePath, PackageStatus.UPLOADING, {
           needsUpload: true,
           statusDetail: `开始上传文件: ${filePath}`,
         });
       }
 
-      // 读取文件内容
-      const fileBuffer = await this.readFileContent(filePath);
+      const result = await withRetry(() => this.doUpload(filePath, uploadUrl, auth), {
+        maxAttempts: 3,
+        baseDelay: 2000,
+        maxDelay: 30000,
+        operationName: `上传包 ${fileName}`,
+        retryableCheck: (error) => {
+          if (error && typeof error === 'object' && 'type' in error) {
+            return ErrorClassifier.isRetryable(error as PackageUploadError);
+          }
+          return true;
+        },
+      });
 
-      // 创建multipart/form-data
-      const formData = this.createFormData(fileBuffer, fileName);
-
-      // 执行上传请求
-      const result = await this.executeUploadRequest(formData, uploadUrl, auth);
-
-      // 更新进度跟踪器 - 上传完成
       if (this.config.progressTracker) {
         const status = result.success ? PackageStatus.COMPLETED : PackageStatus.FAILED;
         const updateInfo: { error?: string; statusCode?: number; needsUpload?: boolean; statusDetail?: string } = {
@@ -80,7 +79,6 @@ export class FetchPackageUploader implements PackageUploader {
         };
         if (result.error) updateInfo.error = result.error;
         if (result.statusCode) updateInfo.statusCode = result.statusCode;
-
         this.config.progressTracker.updateProgress(filePath, status, updateInfo);
       }
 
@@ -88,7 +86,6 @@ export class FetchPackageUploader implements PackageUploader {
     } catch (error) {
       const uploadError = this.handleUploadError(error, filePath, registryUrl);
 
-      // 更新进度跟踪器 - 上传失败
       if (this.config.progressTracker) {
         const failedUpdateInfo: { error?: string; statusCode?: number; needsUpload?: boolean; statusDetail?: string } =
           {
@@ -96,18 +93,10 @@ export class FetchPackageUploader implements PackageUploader {
             statusDetail: `上传失败: ${uploadError.message}`,
           };
         if (uploadError.statusCode) failedUpdateInfo.statusCode = uploadError.statusCode;
-
         this.config.progressTracker.updateProgress(filePath, PackageStatus.FAILED, failedUpdateInfo);
       }
 
-      // 记录错误信息
-      logger.error(`包上传失败: ${fileName}`, {
-        error: uploadError.message,
-        type: uploadError.type,
-        filePath,
-        registryUrl,
-        details: uploadError.details,
-      });
+      ErrorHandler.logError(uploadError, '包上传');
 
       const result: UploadResult = {
         success: false,
@@ -120,30 +109,44 @@ export class FetchPackageUploader implements PackageUploader {
   }
 
   /**
+   * 执行单次上传请求
+   */
+  private async doUpload(filePath: string, uploadUrl: string, auth: string): Promise<UploadResult> {
+    const fileName = basename(filePath);
+    const fileBuffer = await this.readFileContent(filePath);
+    const formData = this.createFormData(fileBuffer, fileName);
+    return this.executeUploadRequest(formData, uploadUrl, auth);
+  }
+
+  /**
    * 读取文件内容
    */
   private async readFileContent(filePath: string): Promise<Buffer> {
     try {
-      // 先检查文件是否存在
       await stat(filePath);
       return await readFile(filePath);
     } catch (error) {
       const err = error as ErrnoException;
       if (err.code === 'ENOENT') {
-        throw this.createUploadError(ErrorType.FILE_ERROR, `文件不存在: ${filePath}`, {
-          filePath,
-          errorCode: err.code,
-        });
+        throw ErrorHandler.createPackageUploadError(ErrorType.FILE_ERROR, `文件不存在: ${filePath}`, 'unknown', filePath);
       } else if (err.code === 'EACCES') {
-        throw this.createUploadError(ErrorType.FILE_ERROR, `文件访问权限不足: ${filePath}`, {
-          filePath,
-          errorCode: err.code,
-        });
+        throw ErrorHandler.createPackageUploadError(
+          ErrorType.FILE_ERROR,
+          `文件访问权限不足: ${filePath}`,
+          'unknown',
+          filePath
+        );
       } else {
-        throw this.createUploadError(ErrorType.FILE_ERROR, `文件读取失败: ${err.message}`, {
+        throw ErrorHandler.createPackageUploadError(
+          ErrorType.FILE_ERROR,
+          `文件读取失败: ${err.message}`,
+          'unknown',
           filePath,
-          originalError: err,
-        });
+          undefined,
+          undefined,
+          undefined,
+          { originalError: err }
+        );
       }
     }
   }
@@ -154,22 +157,22 @@ export class FetchPackageUploader implements PackageUploader {
   private createFormData(fileBuffer: Buffer, fileName: string): FormData {
     try {
       const formData = new FormData();
-
-      // 创建Blob对象，指定正确的MIME类型
-      // 将Buffer转换为Uint8Array以兼容Blob构造函数
       const blob = new Blob([new Uint8Array(fileBuffer)], {
         type: 'application/x-compressed',
       });
-
-      // 添加文件到表单数据，使用npm.asset作为字段名（符合Nexus要求）
       formData.append('npm.asset', blob, fileName);
-
       return formData;
     } catch (error) {
-      throw this.createUploadError(ErrorType.MULTIPART_ERROR, `创建表单数据失败: ${(error as Error).message}`, {
-        fileName,
-        originalError: error,
-      });
+      throw ErrorHandler.createPackageUploadError(
+        ErrorType.MULTIPART_ERROR,
+        `创建表单数据失败: ${(error as Error).message}`,
+        'unknown',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { fileName, originalError: error }
+      );
     }
   }
 
@@ -177,17 +180,14 @@ export class FetchPackageUploader implements PackageUploader {
    * 执行上传请求
    */
   private async executeUploadRequest(formData: FormData, uploadUrl: string, auth: string): Promise<UploadResult> {
-    // 创建AbortController用于超时控制
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
     }, this.config.requestTimeout);
 
     try {
-      // 编码认证信息
       const authHeader = `Basic ${Buffer.from(auth).toString('base64')}`;
 
-      // 执行fetch请求
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
@@ -198,13 +198,10 @@ export class FetchPackageUploader implements PackageUploader {
         signal: controller.signal,
       });
 
-      // 清除超时定时器
       clearTimeout(timeoutId);
 
-      // 读取响应内容
       const responseBody = await response.text();
 
-      // 检查响应状态
       if (response.ok) {
         return {
           success: true,
@@ -212,7 +209,6 @@ export class FetchPackageUploader implements PackageUploader {
           responseBody,
         };
       } else {
-        // HTTP错误状态码处理
         return this.handleHttpError(response.status, response.statusText, responseBody);
       }
     } catch (error) {
@@ -220,22 +216,40 @@ export class FetchPackageUploader implements PackageUploader {
 
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('aborted')) {
-          throw this.createUploadError(ErrorType.TIMEOUT_ERROR, `请求超时 (${this.config.requestTimeout}ms)`, {
+          throw ErrorHandler.createPackageUploadError(
+            ErrorType.TIMEOUT_ERROR,
+            `请求超时 (${this.config.requestTimeout}ms)`,
+            'unknown',
+            undefined,
             uploadUrl,
-            timeout: this.config.requestTimeout,
-          });
+            undefined,
+            undefined,
+            { timeout: this.config.requestTimeout }
+          );
         } else if (error.message.includes('fetch') || error.message.includes('network')) {
-          throw this.createUploadError(ErrorType.NETWORK_ERROR, `网络请求失败: ${error.message}`, {
+          throw ErrorHandler.createPackageUploadError(
+            ErrorType.NETWORK_ERROR,
+            `网络请求失败: ${error.message}`,
+            'unknown',
+            undefined,
             uploadUrl,
-            originalError: error,
-          });
+            undefined,
+            undefined,
+            { originalError: error }
+          );
         }
       }
 
-      throw this.createUploadError(ErrorType.UPLOAD_ERROR, `上传请求异常: ${(error as Error).message}`, {
+      throw ErrorHandler.createPackageUploadError(
+        ErrorType.UPLOAD_ERROR,
+        `上传请求异常: ${(error as Error).message}`,
+        'unknown',
+        undefined,
         uploadUrl,
-        originalError: error,
-      });
+        undefined,
+        undefined,
+        { originalError: error }
+      );
     }
   }
 
@@ -245,7 +259,6 @@ export class FetchPackageUploader implements PackageUploader {
   private handleHttpError(status: number, statusText: string, responseBody: string): UploadResult {
     let errorMessage = `HTTP ${status}: ${statusText}`;
 
-    // 根据状态码分类错误类型
     switch (status) {
       case 400:
         errorMessage = `请求格式错误 (${status}): 可能是文件格式不正确或请求参数有误`;
@@ -274,12 +287,8 @@ export class FetchPackageUploader implements PackageUploader {
       case 504:
         errorMessage = `服务器错误 (${status}): ${statusText}`;
         break;
-      default:
-        // 默认错误消息已设置
-        break;
     }
 
-    // 尝试从响应体中提取更详细的错误信息
     if (responseBody) {
       try {
         const errorData = JSON.parse(responseBody) as { message?: string; error?: string };
@@ -289,7 +298,6 @@ export class FetchPackageUploader implements PackageUploader {
           errorMessage += ` - ${errorData.error}`;
         }
       } catch {
-        // 如果不是JSON格式，检查是否是HTML错误页面
         if (responseBody.includes('<html>')) {
           errorMessage += ' - 服务器返回HTML错误页面，可能是错误的仓库地址';
         } else if (responseBody.length < 200) {
@@ -311,37 +319,20 @@ export class FetchPackageUploader implements PackageUploader {
    */
   private handleUploadError(error: unknown, filePath?: string, registryUrl?: string): PackageUploadError {
     if (error && typeof error === 'object' && 'type' in error) {
-      // 如果已经是PackageUploadError，直接返回
       return error as PackageUploadError;
     }
 
     const err = error as Error;
-    return this.createUploadError(ErrorType.UPLOAD_ERROR, err.message || '未知上传错误', {
+    return ErrorHandler.createPackageUploadError(
+      ErrorType.UPLOAD_ERROR,
+      err.message || '未知上传错误',
+      'unknown',
       filePath,
       registryUrl,
-      originalError: error,
-    });
-  }
-
-  /**
-   * 创建上传错误对象
-   */
-  private createUploadError(
-    type: PackageUploadError['type'],
-    message: string,
-    details: Record<string, unknown>
-  ): PackageUploadError {
-    return {
-      type,
-      message,
-      details,
-      // retryable: false, // 不使用重试机制 - 移除此属性，因为接口中不存在
-      packageName: (details.fileName as string) || 'unknown',
-      filePath: details.filePath as string,
-      uploadUrl: details.registryUrl as string,
-      statusCode: details.statusCode as number,
-      responseBody: details.responseBody as string,
-    };
+      undefined,
+      undefined,
+      { originalError: error }
+    );
   }
 }
 
@@ -351,8 +342,3 @@ export class FetchPackageUploader implements PackageUploader {
 export function createPackageUploader(config?: UploadConfig): PackageUploader {
   return new FetchPackageUploader(config);
 }
-
-/**
- * 默认包上传器实例
- */
-export const packageUploader = new FetchPackageUploader({});

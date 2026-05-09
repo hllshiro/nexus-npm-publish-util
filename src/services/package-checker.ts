@@ -6,6 +6,8 @@ import {
   type PackageRegistryResponse,
 } from '@/types/index.ts';
 import { ensureUrlEndsWithSlash } from '@/utils/registry-url-parser.ts';
+import { ErrorHandler, ErrorClassifier } from '@/utils/error-handler.ts';
+import { withRetry } from '@/utils/retry.ts';
 
 /**
  * 基于npm registry的包检查器实现
@@ -16,8 +18,8 @@ export class RegistryPackageChecker implements PackageChecker {
 
   constructor(config: PackageCheckerConfig = {}) {
     this.config = {
-      connectTimeout: config.connectTimeout ?? 10000,
       requestTimeout: config.requestTimeout ?? 30000,
+      auth: config.auth ?? '',
     };
   }
 
@@ -29,45 +31,55 @@ export class RegistryPackageChecker implements PackageChecker {
    * @returns 是否存在
    */
   async checkPackageExists(packageName: string, version: string, registryUrl: string): Promise<boolean> {
-    try {
-      // 解析registry URL，构建检查URL
-      const encodedName = encodeURIComponent(packageName);
+    return await withRetry(() => this.doCheckPackageExists(packageName, version, registryUrl), {
+      maxAttempts: 3,
+      baseDelay: 1000,
+      maxDelay: 10000,
+      operationName: `检查包 ${packageName}@${version}`,
+      retryableCheck: (error) => {
+        if (error && typeof error === 'object' && 'type' in error) {
+          return ErrorClassifier.isRetryable(error as PackageCheckError);
+        }
+        return true;
+      },
+    });
+  }
 
-      // 构建检查URL：${BASEURL}/repository/{repository}/${packageName}
+  /**
+   * 执行单次包存在性检查
+   */
+  private async doCheckPackageExists(packageName: string, version: string, registryUrl: string): Promise<boolean> {
+    try {
+      const encodedName = encodeURIComponent(packageName);
       const checkUrl = `${ensureUrlEndsWithSlash(registryUrl)}${encodedName}`;
 
       const response = await this.fetchWithTimeout(checkUrl);
 
-      // 404表示包不存在
       if (response.status === 404) {
         return false;
       }
 
-      // 检查其他HTTP错误
       if (!response.ok) {
-        throw this.createPackageCheckError(
+        throw ErrorHandler.createPackageCheckError(
           ErrorType.REGISTRY_ERROR,
           `HTTP ${response.status}: ${response.statusText}`,
           packageName,
           version,
           registryUrl,
-          {
-            statusCode: response.status,
-            statusText: response.statusText,
-          }
+          { statusCode: response.status, statusText: response.statusText }
         );
       }
 
-      // 解析响应数据
       const packageData = (await response.json()) as PackageRegistryResponse;
-
-      // 检查指定版本是否存在
       return version in packageData.versions;
     } catch (error) {
+      if (this.isPackageCheckError(error)) {
+        throw error;
+      }
+
       if (error instanceof Error) {
-        // 处理超时错误
         if (error.name === 'AbortError' || error.message.includes('timeout')) {
-          throw this.createPackageCheckError(
+          throw ErrorHandler.createPackageCheckError(
             ErrorType.TIMEOUT_ERROR,
             `请求超时: ${error.message}`,
             packageName,
@@ -77,9 +89,8 @@ export class RegistryPackageChecker implements PackageChecker {
           );
         }
 
-        // 处理网络错误
         if (error.message.includes('fetch') || error.message.includes('network')) {
-          throw this.createPackageCheckError(
+          throw ErrorHandler.createPackageCheckError(
             ErrorType.NETWORK_ERROR,
             `网络错误: ${error.message}`,
             packageName,
@@ -88,27 +99,9 @@ export class RegistryPackageChecker implements PackageChecker {
             { originalError: error }
           );
         }
-
-        // 处理JSON解析错误
-        if (error.message.includes('JSON') || error.message.includes('parse')) {
-          throw this.createPackageCheckError(
-            ErrorType.REGISTRY_ERROR,
-            `响应解析错误: ${error.message}`,
-            packageName,
-            version,
-            registryUrl,
-            { originalError: error }
-          );
-        }
       }
 
-      // 如果是已知的PackageCheckError，直接抛出
-      if (this.isPackageCheckError(error)) {
-        throw error;
-      }
-
-      // 其他未知错误
-      throw this.createPackageCheckError(
+      throw ErrorHandler.createPackageCheckError(
         ErrorType.REGISTRY_ERROR,
         `未知错误: ${error instanceof Error ? error.message : String(error)}`,
         packageName,
@@ -121,51 +114,29 @@ export class RegistryPackageChecker implements PackageChecker {
 
   /**
    * 使用超时控制的fetch请求
-   * @param url 请求URL
-   * @returns Response对象
    */
   private async fetchWithTimeout(url: string): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.requestTimeout);
 
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'User-Agent': 'publish-util/1.0.0',
+    };
+
+    if (this.config.auth) {
+      headers.Authorization = `Basic ${btoa(this.config.auth)}`;
+    }
+
     try {
-      const response = await fetch(url, {
+      return await fetch(url, {
         method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'publish-util/1.0.0',
-        },
+        headers,
         signal: controller.signal,
       });
-
-      return response;
     } finally {
       clearTimeout(timeoutId);
     }
-  }
-
-  /**
-   * 创建包检查错误对象
-   */
-  private createPackageCheckError(
-    type: PackageCheckError['type'],
-    message: string,
-    packageName: string,
-    version?: string,
-    registryUrl?: string,
-    details?: unknown
-  ): PackageCheckError {
-    const error: PackageCheckError = {
-      type,
-      message,
-      packageName,
-      details,
-    };
-
-    if (version !== undefined) error.version = version;
-    if (registryUrl !== undefined) error.registryUrl = registryUrl;
-
-    return error;
   }
 
   /**

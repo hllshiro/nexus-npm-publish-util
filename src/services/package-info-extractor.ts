@@ -198,59 +198,6 @@ export class TarPackageInfoExtractor implements PackageInfoExtractor {
   }
 
   /**
-   * 批量提取多个包的信息
-   * @param tgzFilePaths .tgz文件路径列表
-   * @returns 包信息列表
-   */
-  async extractMultiplePackageInfo(tgzFilePaths: string[]): Promise<PackageInfo[]> {
-    const results: PackageInfo[] = [];
-
-    // 使用并发处理提高性能，但限制并发数避免资源耗尽
-    const concurrency = 5;
-    const chunks = this.chunkArray(tgzFilePaths, concurrency);
-
-    for (const chunk of chunks) {
-      const promises = chunk.map((filePath) => this.extractPackageInfo(filePath));
-      const chunkResults = await Promise.all(promises);
-
-      // 过滤掉null结果
-      results.push(...chunkResults.filter((result): result is PackageInfo => result !== null));
-    }
-
-    return results;
-  }
-
-  /**
-   * 验证包信息的完整性
-   * @param packageInfo 包信息
-   * @returns 是否有效
-   */
-  validatePackageInfo(packageInfo: PackageInfo): boolean {
-    try {
-      // 检查必需字段
-      if (!packageInfo.packageName || !packageInfo.version || !packageInfo.filePath) {
-        return false;
-      }
-
-      // 验证包名格式（支持scoped包）
-      const packageNameRegex = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
-      if (!packageNameRegex.test(packageInfo.packageName)) {
-        return false;
-      }
-
-      // 验证版本号格式（基本的semver检查）
-      const versionRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)?(\+[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)?$/;
-      if (!versionRegex.test(packageInfo.version)) {
-        return false;
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * 检查文件是否存在
    * @param filePath 文件路径
    * @returns 是否存在
@@ -263,19 +210,5 @@ export class TarPackageInfoExtractor implements PackageInfoExtractor {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * 将数组分块
-   * @param array 原数组
-   * @param size 块大小
-   * @returns 分块后的数组
-   */
-  private chunkArray<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-      chunks.push(array.slice(i, i + size));
-    }
-    return chunks;
   }
 }
